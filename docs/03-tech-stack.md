@@ -18,41 +18,57 @@
 - **Fallback:** if any dependency fails on Node 26 during Sprint 0 installation, use **Node 24.x**, which every pinned package also supports and which is maintained until April 2028. Record the reason in ADR-006.
 - **pnpm installation:** corepack isn't available, so install with `npm install -g --allow-scripts=pnpm pnpm@12.11.2`. The version is pinned in the `packageManager` field. pnpm 12 reads its settings (`engineStrict`, `savePrefix`) from **`pnpm-workspace.yaml`, not `.npmrc`** (verified 2026-10-14). It also records its own version in `pnpm-lock.yaml` (`packageManagerDependencies`).
 
-## 2. Pinned versions
+## 2. Pinned versions (verified in S0.3, 2026-10-14)
 
-Compatibility here was checked from npm registry metadata (`version`, `engines`, `peerDependencies`) on 2026-10-14. **Nothing has been installed yet.** Sprint 0 task S0.3 performs the real install, typecheck and build, and only then are these versions confirmed. Exact versions go in `package.json`, and the lockfile is committed.
+**The source of truth is the `catalog:` in `pnpm-workspace.yaml`.** Packages reference versions with `catalog:`. This table explains the pins.
 
-| Layer | Package | Pin | Engines / peers checked | Notes |
-|---|---|---|---|---|
-| Package manager | pnpm | **12.11.2** | node ≥ 18 | Via npm global install, not corepack |
-| Monorepo | turbo | **2.11.8** | — | |
-| Language | typescript | **6.0.3** | — | ⚠️ **Not 7.0.2.** typescript-eslint 8.71.2 requires TypeScript `>=4.8.4 <6.1.0`. |
-| Lint | eslint | **10.12.0** | node ≥ 24 ✅ | Flat config |
-| Lint | typescript-eslint | **8.71.2** | eslint ^10 ✅, TS < 6.1 ✅ | |
-| Web | next | **16.4.0** | node ≥ 20.9 ✅, react ^19 ✅ | `output: 'standalone'` for ECS |
-| Web | react / react-dom | **19.3.0** | — | |
-| Web | tailwindcss | **4.3.3** | — | shadcn/ui on Tailwind v4 |
-| API | fastify | **5.12.7** | — | |
-| Validation | zod | **4.6.7** | — | |
-| API | fastify-type-provider-zod | **7.0.0** | fastify ^5.5 ✅, zod ≥ 4.1.5 ✅ | Plus `@fastify/swagger` for OpenAPI |
-| DB | drizzle-orm | **0.45.4** | pg ≥ 8 ✅ | ⚠️ **Not the 1.0 RC** (`1.0.0-rc.5`). Re-evaluate when 1.0 reaches GA. |
-| DB | drizzle-kit | **0.31.11** | — | Hand-written SQL migrations for RLS, roles and functions |
-| DB driver | pg | **8.23.1** | node ≥ 16 ✅ | |
-| Queue | bullmq | **6.3.15** | ioredis ≥ 5 ✅ | Major released 2026-07-30. **Sprint 0 spike** (S0.7); fall back to 5.x if it fails. |
-| Redis client | ioredis | **6.0.0** | node ≥ 20 ✅ | |
-| Email | mjml | **5.4.1** | — | |
-| Templating | liquidjs | **10.30.0** | node ≥ 16 ✅ | ADR-008 |
-| Email provider | @aws-sdk/client-sesv2 | **3.1151.0** | node ≥ 20 ✅ | Needs `TenantName` support; checked in the Sprint 2 spike |
-| HTTP client | undici | **8.12.1** | node ≥ 22.19 ✅ | Custom `lookup` for the SSRF guard |
-| Passwords | @node-rs/argon2 | **2.2.2** | N-API (independent of Node version) | |
-| MFA | otplib | **13.5.0** | — | |
-| Logging | pino | **10.4.0** | — | |
-| Tests | vitest | **5.0.4** | node ^22.12 / ^24 / ≥ 26 ✅ | |
-| Tests | testcontainers | **12.2.1** | node ≥ 22.22 ✅ | **Requires Docker** |
-| Tests | @playwright/test | **1.64.0** | node ≥ 20 ✅ | Matches Next 16's optional peer `^1.51.1` |
-| Types | @types/node | **26.x** | — | Matches the runtime major |
+**How they were verified:**
+- The whole set was installed together in a scratch workspace on **Node 26.4.0 + pnpm 12.11.2**, with `minimumReleaseAge` set to 14 days. The install resolved 594 packages.
+- Every runtime library was loaded and exercised on Node 26, and every CLI was run.
+- Peers were checked with `pnpm peers check`.
+- In the repository itself, only the toolchain of `@dm/config` is installed so far (98 packages, no peer issues).
 
-Other tools will be pinned at the same time in Sprint 0: `@fastify/*` plugins, `dependency-cruiser`, `prettier`, `shadcn` CLI, `@opentelemetry/*`, `@sentry/node`, `gitleaks` (CI action).
+**Supply-chain rule (ADR-006):**
+- Every pinned version, and every transitive dependency, must be **at least 14 days old**. pnpm enforces this with `minimumReleaseAge: 20160`.
+- That is why many Phase 1 pins, which were "latest on 2026-10-14", moved back to the newest version published on or before 2026-09-29, within the same major line.
+
+| Layer | Package | Planned (Phase 1) | **Pinned (S0.3)** | Published | Verified on Node 26.4 | Notes |
+|---|---|---|---|---|---|---|
+| Package manager | pnpm | 12.11.2 | **12.11.2** | 2026-10-09 | Installed globally; CI-proven | ⚠️ **Exception** to the 14-day rule (adopted in S0.1, before the rule). Replace with a ≥ 14-day version at the next tool upgrade. |
+| Monorepo | turbo | 2.11.8 | **2.11.5** | 2026-09-28 | CLI ran | Catalogued only; **adoption deferred** (`pnpm -r` is enough until a build graph exists) |
+| Language | typescript | 6.0.3 | **6.0.3** | 2026-04-16 | Strict compile ✅; in use by `@dm/config` | Not 7.x: typescript-eslint requires TypeScript `<6.1.0` |
+| Lint | eslint | 10.12.0 | **10.11.0** | 2026-09-18 | In use; negative tests ✅ |  |
+| Lint | @eslint/js | — | **10.0.1** | 2026-02-06 | In use | **Added:** needed for flat-config `recommended` rules |
+| Lint | typescript-eslint | 8.71.2 | **8.71.0** | 2026-09-28 | In use; type-aware rules ✅ | Peer: TypeScript `<6.1.0` ✅, eslint ^10 ✅ |
+| Format | prettier | (Sprint 0) | **3.9.9** | 2026-09-23 | CLI ran | Catalogued; **wiring deferred** until there is source code (S0.4) |
+| Web | next | 16.4.0 | **16.3.7** | 2026-09-29 | Resolves; CLI ran | 16.4.0 was too new |
+| Web | react / react-dom | 19.3.0 | **19.3.0** | 2026-09-09 | SSR render ✅ |  |
+| Web | tailwindcss | 4.3.3 | **4.3.3** | 2026-07-16 | Installed |  |
+| API | fastify | 5.12.7 | **5.12.5** | 2026-09-16 | Request validation via inject ✅ |  |
+| Validation | zod | 4.6.7 | **4.6.5** | 2026-09-13 | Parse ✅ |  |
+| API | fastify-type-provider-zod | 7.0.0 | **7.0.0** | 2026-06-24 | 200/400 validation ✅ | Requires peers `@fastify/swagger` and `openapi-types` |
+| API | @fastify/swagger | — | **9.9.0** | 2026-09-22 | Loads | **Added:** required peer |
+| API | openapi-types | — | **12.1.3** | 2023-05-24 | Installed | **Added:** required peer |
+| DB | drizzle-orm | 0.45.4 | **0.45.3** | 2026-09-21 | pg table definition ✅ | Not 1.0 RC |
+| DB | drizzle-kit | 0.31.11 | **0.31.11** | 2026-09-21 | CLI ✅ (with esbuild script denied) |  |
+| DB driver | pg | 8.23.1 | **8.23.0** | 2026-08-08 | Client constructed | 8.23.1 was too new |
+| Queue | bullmq | 6.3.15 | **6.3.10** | 2026-09-29 | Loads | Behaviour spike in S0.7 (needs Docker) |
+| Redis client | ioredis | 6.0.0 | **6.0.0** | 2026-07-31 | Lazy client ✅ |  |
+| Email | mjml | 5.4.1 | **5.4.1** | 2026-09-10 | Compile ✅; minify ✅ | Accepted upstream peer conflict: htmlnano wants cssnano ^8, gets 7.1.9 (see ADR-006) |
+| Templating | liquidjs | 10.30.0 | **10.29.0** | 2026-08-11 | HTML escaping ✅ |  |
+| Email provider | @aws-sdk/client-sesv2 | 3.1151.0 | **3.1142.0** | 2026-09-28 | `SendEmailRequest.TenantName` present in types ✅ | Real SES behaviour: spike S2.6 |
+| HTTP client | undici | 8.12.1 | **8.11.2** | 2026-09-24 | Agent with custom `connect.lookup` ✅ |  |
+| Passwords | @node-rs/argon2 | 2.2.2 | **2.2.1** | 2026-09-10 | Native hash + verify on Node 26 ✅ |  |
+| MFA | otplib | 13.5.0 | **13.5.0** | 2026-08-21 | TOTP generate + verify ✅ | v13 API: `generate` / `verify` functions |
+| Logging | pino | 10.4.0 | **10.3.1** | 2026-02-09 | Loads |  |
+| Tests | vitest | 5.0.4 | **5.0.2** | 2026-09-25 | Real TypeScript test run ✅ |  |
+| Tests | testcontainers | 12.2.1 | **12.2.0** | 2026-09-28 | Loads (no Docker yet) | Container start verified with Docker (S0.4/S0.5) |
+| Tests | @playwright/test | 1.64.0 | **1.63.0** | 2026-09-04 | CLI ran | Browsers not installed yet (S0.8) |
+| Types | @types/node | 26.x | **26.6.3** | 2026-09-25 | In use |  |
+
+**Install scripts:** denied by default. Reviewed denials (`allowBuilds` in `pnpm-workspace.yaml`): `cpu-features`, `ssh2`, `esbuild`, `msgpackr-extract`, `protobufjs`. All dependent tools were verified to work without them.
+
+**Still to pin when first used:** `@fastify/*` plugins, `dependency-cruiser` (S0.4/S0.8, once there are module boundaries to enforce), `shadcn` CLI, `@opentelemetry/*`, `@sentry/node`. Any new pin must be at least 14 days old.
 
 ## 3. Services and infrastructure versions
 

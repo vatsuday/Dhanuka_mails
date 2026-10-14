@@ -3,7 +3,7 @@
 **Status:** Accepted (Phase 1 approval, 2026-10-14) · **Date:** 2026-10-14 · Resolves review finding M7 (the Handlebars vs Liquid inconsistency)
 
 ## Decision
-- **MJML 5.4** compiles to HTML when a template is saved. **LiquidJS 10.30** renders it per recipient at send time.
+- **MJML 5.4** compiles to HTML when a template is saved. **LiquidJS 10.29** (pinned in S0.3 under the 14-day rule; see ADR-006) renders it per recipient at send time.
 - **LiquidJS settings:**
   - `outputEscape: 'escape'` for HTML;
   - `ownPropertyOnly: true` and `strictFilters: true`;

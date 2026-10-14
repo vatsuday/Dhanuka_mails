@@ -3,7 +3,10 @@
 **Workflow:** `.github/workflows/ci.yml` (story S0.2)
 **Status:** Defined and validated locally (2026-10-14). **Not yet run on GitHub.** The repository has no remote (blocker B6). **CI does not block merges yet.** It only will once a GitHub ruleset or branch protection rule on `main` requires the `CI OK` check to pass (see "Required GitHub settings").
 
-> **Zero-check condition (current):** no workspace packages exist yet, so `lint`, `typecheck`, `test:unit` and `test:integration` **execute no package checks at all**. They exit 0 trivially. The `checks:coverage` step prints a `::warning` for each such check and a table in the job summary. A green run today means only: the lockfile is consistent, the toolchain installs, and gitleaks found no secrets.
+> **Check coverage (current, after S0.3):** one workspace package exists, `@dm/config`.
+> - `lint` and `typecheck` run **real checks on that package only**: ESLint and `tsc` over its preset files.
+> - `test:unit` and `test:integration` still **execute no checks at all** (zero packages define them). The `checks:coverage` step prints a `::warning` for each and a table in the job summary.
+> - Coverage grows as S0.4 and later stories add packages.
 
 ## Triggers
 
@@ -33,7 +36,7 @@ test:integration -> pnpm -r --if-present run test:integration
 
 - **Adding checks:** a package opts in by defining the script. Packages without it are skipped.
 - **Failures:** any failing package fails the root command, which fails the job (verified with a fixture workspace).
-- **⚠️ Current state:** no workspace packages exist yet, so lint, typecheck and both test steps **run zero checks and pass trivially**. They become real as S0.3 (toolchain), S0.4/S0.5 (DB and isolation tests) and S0.8 (apps) add packages and scripts. Until then, green CI only means: the lockfile is consistent, the toolchain installs, and gitleaks is clean.
+- **⚠️ Current state (after S0.3):** lint and typecheck cover one package (`@dm/config`). Both test steps **run zero checks and pass trivially** until S0.4/S0.5 (DB and isolation tests) and S0.8 (apps) add tests.
 
 ## Supply-chain controls
 
@@ -101,4 +104,5 @@ These tools are **not** project dependencies. They were run from the session scr
 
 ## Other known gaps
 
-- No dependency caching yet. A pnpm store cache is to be added in S0.3, when there are dependencies worth caching. It will be keyed on the lockfile and limited to `push` to `main`, to avoid cache poisoning from pull requests.
+- **No dependency caching (deferred in S0.3, ADR-006):** the toolchain install is 98 packages. Revisit when install time matters. When added, key it on the lockfile and save only from `push` to `main`, to avoid cache poisoning from pull requests.
+- **Supply-chain rule:** `pnpm install --frozen-lockfile` in CI also checks the lockfile against `minimumReleaseAge` (14 days) and the `allowBuilds` policy in `pnpm-workspace.yaml`.

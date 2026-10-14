@@ -8,3 +8,58 @@ packages:
 engineStrict: true
 # Record exact versions, never ranges (ADR-006).
 savePrefix: ""
+
+# Supply-chain rule (ADR-006): never install any package version, direct or transitive, that was
+# published less than 14 days ago (20160 minutes). pnpm enforces this at resolution time.
+minimumReleaseAge: 20160
+
+# Install scripts are denied unless reviewed and approved (ADR-006).
+# Each entry below was reviewed on 2026-10-14, and the dependent tool was verified to work without it:
+#   cpu-features, ssh2       - optional native SSH support pulled in by testcontainers (we use the local Docker socket)
+#   esbuild                  - post-install binary check only; the platform binary comes from an optional dependency
+#                              (0.18.20, 0.25.12 and 0.28.2 all transformed TypeScript correctly without it)
+#   msgpackr-extract         - optional native accelerator for msgpackr (bullmq); falls back to pure JavaScript
+#   protobufjs               - post-install version check (testcontainers -> dockerode)
+allowBuilds:
+  cpu-features: false
+  ssh2: false
+  esbuild: false
+  msgpackr-extract: false
+  protobufjs: false
+
+# Single source of truth for dependency versions (ADR-006, docs/03-tech-stack.md section 2).
+# Packages reference these with "catalog:". Every version was published on or before 2026-09-29
+# and was installed and verified together on Node 26.4.0 + pnpm 12.11.2 (S0.3, 2026-10-14).
+# Entries are only installed when a package uses them.
+catalog:
+  "@aws-sdk/client-sesv2": 3.1142.0
+  "@eslint/js": 10.0.1
+  "@fastify/swagger": 9.9.0
+  "@node-rs/argon2": 2.2.1
+  "@playwright/test": 1.63.0
+  "@types/node": 26.6.3
+  bullmq: 6.3.10
+  drizzle-kit: 0.31.11
+  drizzle-orm: 0.45.3
+  eslint: 10.11.0
+  fastify: 5.12.5
+  fastify-type-provider-zod: 7.0.0
+  ioredis: 6.0.0
+  liquidjs: 10.29.0
+  mjml: 5.4.1
+  next: 16.3.7
+  openapi-types: 12.1.3
+  otplib: 13.5.0
+  pg: 8.23.0
+  pino: 10.3.1
+  prettier: 3.9.9
+  react: 19.3.0
+  react-dom: 19.3.0
+  tailwindcss: 4.3.3
+  testcontainers: 12.2.0
+  turbo: 2.11.5
+  typescript: 6.0.3
+  typescript-eslint: 8.71.0
+  undici: 8.11.2
+  vitest: 5.0.2
+  zod: 4.6.5

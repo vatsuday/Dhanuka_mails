@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.2 (CI pipeline) **committed at `7563d15d5c8b2eea3436a15d9b04359a2761a4bf`** (2026-10-14). `main` **pushed** to the private repository `https://github.com/vatsuday/Dhanuka_mails` (2026-10-14; remote `main` = `0e90246`). The first CI run on the push to `main` **passed, as reported by the PO** (2026-10-14); Claude has no Actions access, so it was not verified independently. CI **does not block merges** until the `CI OK` ruleset is applied. **S0.3 will not start until the repository setup is reviewed and the PO approves.**
+**Current task:** **S0.3 (toolchain pinning): implemented, verified and approved by the PO (2026-10-14); committed locally, push pending.** S0.2 is committed (`7563d15`) and pushed; the first CI run passed (PO report). CI **does not block merges** until the `CI OK` ruleset is applied. S0.4 has not started (also needs Docker, B2).
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -31,7 +31,7 @@
 |---|---|---|
 | **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C (needs Docker). Committed `df3a7cd`. |
 | **S0.2** CI pipeline | 🟡 **Committed `7563d15`; GitHub verification pending** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository and the `CI OK` ruleset (B6). See "S0.2 report". |
-| S0.3 Toolchain pinning | ⚪ Not started | pnpm is now available |
+| **S0.3** Toolchain pinning | ✅ **Done; PO approved 2026-10-14** | See "S0.3 report" |
 | S0.4 DB foundation and RLS | ⚪ Not started | Needs Docker (B2). **S0.1-C must be completed first.** |
 | S0.5 Isolation harness | ⚪ Not started | Needs Docker (B2) |
 | S0.6 Config, logging, health | ⚪ Not started | |
@@ -129,6 +129,42 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 
 **Still unverified (needs the GitHub repository):** GitHub execution of all jobs; **merge protection** (CI does **not** block merges until a ruleset or branch protection requires `CI OK`); Node 26 on `ubuntu-24.04` via `setup-node` v7.0.0; `npm --allow-scripts` on the runner; actual CI duration.
 
+### S0.3 report (2026-10-14)
+
+**Scope interpretation:**
+- The full planned stack was verified in a **scratch workspace**, not in the repository.
+- The repository installs **only what is used now**, the `@dm/config` toolchain. Runtime libraries are installed by the stories that use them, from the catalog.
+- All pins live in the **`catalog:` in `pnpm-workspace.yaml`**.
+
+**Main finding: supply-chain age.** 21 of the Phase 1 pins had been published within the previous 14 days (some that same day). A 14-day minimum release age was added (`minimumReleaseAge: 20160`, enforced by pnpm), and the affected pins moved back within the same major line. **next** (16.4.0 → 16.3.7) and **@playwright/test** (1.64.0 → 1.63.0) each moved back one minor version. Full list in ADR-006.
+
+**Acceptance criteria:**
+| AC | Status |
+|---|---|
+| (1) Exact versions installed on Node 26.4 | ✅ Full set: scratch install of 594 packages, every library loaded or exercised, every CLI run. Repository: `@dm/config` toolchain at exact catalog versions (98 packages). |
+| (2) Peer warnings reviewed; accepted ones documented | ✅ Scratch: **1 upstream peer conflict** (`htmlnano` wants `cssnano ^8`, gets 7.1.9, inside MJML), accepted and documented; MJML minify verified working. Repository: **no peer issues**. Install scripts: 5 reviewed and denied (`allowBuilds`), each dependent tool verified to work without them. |
+| (3) Version changes recorded in ADR-006 with reasons | ✅ ADR-006 "S0.3 revision": 18 re-pins, 4 additions, 4 deferrals, 1 exception, 1 accepted peer warning, 5 build-script denials |
+
+**Checks run:**
+| Check | Result |
+|---|---|
+| Publish date of every pin (npm registry) | 21 of 32 were younger than 14 days → re-pinned |
+| Scratch install with `minimumReleaseAge` | First attempt **rejected** (next 16.3.8, pg 8.23.1, @fastify/swagger 9.9.1, sesv2 3.1144.0 and transitive deps were < 14 days old), so the rule works. Re-pinned with a 2026-09-29 cutoff, after which it **resolved 594 packages**. |
+| Scratch install build-script gate | Stopped on 7 unapproved scripts; 5 packages reviewed and denied; install exit 0 |
+| `pnpm peers check` (scratch) | 1 issue: `htmlnano` → `cssnano ^8` (accepted, see above) |
+| Node 26 load and behaviour checks (19) | ✅ All OK: argon2 native hash+verify; Liquid escaping; MJML compile + minify; zod; Fastify + zod provider (200/400); pino; pg; drizzle; ioredis; BullMQ import; undici custom lookup; SESv2 command; testcontainers import; React SSR; next resolves |
+| Follow-ups to two weak checks | otplib: a real TOTP generate + verify (valid true, wrong code false). SESv2: `TenantName` confirmed on `SendEmailRequest` in the SDK types. |
+| CLIs | tsc 6.0.3, eslint 10.11.0, prettier 3.9.9, turbo 2.11.5, drizzle-kit 0.31.11, playwright 1.63.0, next 16.3.7, vitest 5.0.2 |
+| Real vitest run (TypeScript test) | ✅ 1 passed |
+| esbuild without its install script (0.18.20, 0.25.12, 0.28.2) | ✅ All transform TypeScript |
+| Repo `pnpm install`, then a clean `--frozen-lockfile` install | ✅ 98 packages; `pnpm peers check`: no issues |
+| Repo `pnpm run lint` / `typecheck` | ✅ Exit 0, real checks on `@dm/config` |
+| Negative tests in `@dm/config` (planted unused variable, planted type error) | ✅ eslint exit 1 and tsc exit 2; both pass again after removal |
+| Consumer fixture using `@dm/config` exports | ✅ Type-aware lint caught `no-floating-promises` (and 2 more); `noUncheckedIndexedAccess` caught TS2322; the fixed code passes |
+| `checks:coverage` | lint 1, typecheck 1, test:unit 0, test:integration 0 (warnings shown) |
+
+**Note:** pnpm placed its content-addressable store at `D:.pnpm-store` (drive root, outside the repository).
+
 ## Open technical items
 
 | # | Item | Needed by | Notes |
@@ -149,6 +185,9 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | D11 | Pricing and plans; trial vs free tier | Trial plus review | Sprint 8 |
 | D12 | Abuse-review owner and SLA (including the 2-business-day suppression re-check SLA) | Assign | Sprint 7 |
 | D13 | Legal: ToS, AUP, privacy policy, DPA, DPDP notice, grievance contact, CERT-In contact | Engage counsel | Before beta |
+
+**pnpm exception approved by the PO (2026-10-14):** pnpm **12.11.2** (published 2026-10-09) is younger than the 14-day rule. It is accepted as an exception, because it was adopted in S0.1 before the rule and ran in CI, and will be replaced at the next tool upgrade (ADR-006).
+**S0.3 commit:** approved by the PO (2026-10-14).
 
 Approved: D1 (plan), D2 (suppression scope, with safeguards), D3 (unsubscribe scope), D4 (guardrails, with safeguards), S0.1-A (S0.1 AC amendment). All on 2026-10-14.
 **D5 recorded (2026-10-14):** Option B (lean beta) preferred, **subject to a verified AWS Pricing Calculator estimate before any provisioning** (S2.7).
