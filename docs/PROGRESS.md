@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.2 (CI pipeline) **committed at `7563d15d5c8b2eea3436a15d9b04359a2761a4bf`** (2026-10-14). CI has not run on GitHub and **does not block merges** (no repository or ruleset yet, B6). **S0.3 will not start until the repository setup is reviewed and the PO approves.**
+**Current task:** S0.2 (CI pipeline) **committed at `7563d15d5c8b2eea3436a15d9b04359a2761a4bf`** (2026-10-14). `main` **pushed** to the private repository `https://github.com/vatsuday/Dhanuka_mails` (2026-10-14; remote `main` = `0e90246`). The first CI run on the push to `main` **passed, as reported by the PO** (2026-10-14); Claude has no Actions access, so it was not verified independently. CI **does not block merges** until the `CI OK` ruleset is applied. **S0.3 will not start until the repository setup is reviewed and the PO approves.**
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -159,7 +159,7 @@ Approved: D1 (plan), D2 (suppression scope, with safeguards), D3 (unsubscribe sc
 
 | # | Blocker | Impact | Action needed |
 |---|---|---|---|
-| B6 | **No GitHub repository or remote** | CI can't run, merges can't be blocked, runtime can't be measured (S0.2 AC 1–3 on GitHub) | **PO decision (2026-10-14):** a **private** repository named **`dhanuka-mails`** under the PO's **personal** GitHub account. The PO creates it. Claude must **not** add the remote, authenticate or push until the PO confirms the repository exists **and** explicitly authorises the push. Then apply the Actions settings and the `CI OK` ruleset (`docs/ci.md`). |
+| B6 | **GitHub setup incomplete** (repository exists and `main` is pushed) | Merges not yet protected; CI duration not yet recorded | The repository is `vatsuday/Dhanuka_mails` (private, personal account; the actual name differs from the planned `dhanuka-mails`). Pushed 2026-10-14 with the PO's authorisation. **First CI run: passed (PO report, 2026-10-14).** A pass implies Node 26 via `setup-node` and the pnpm install worked on the runner, since the `quality` and `integration` jobs depend on both. Still zero package checks (see `docs/ci.md`). **Remaining:** (1) apply the Actions settings and the `CI OK` ruleset (`docs/ci.md`); **until then CI does not block merges**; (2) record the actual CI duration from the run page (S0.2 AC 3). |
 | B2 | Docker Desktop not installed | S0.1 AC (2) and (3), and S0.4, S0.5, S0.7 | **The PO is installing** Docker Desktop (WSL2) |
 | B4 | AWS accounts and SES production access | Sprint 2 | Create accounts by Sprint 2 |
 | B5 | Domains (D8) | Sprint 2 | Product owner provides them |
