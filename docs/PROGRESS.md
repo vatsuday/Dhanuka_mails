@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.2 (CI pipeline): direction **approved by the PO 2026-10-14**; final review done. **Commit awaiting PO approval.** CI has not run on GitHub and **does not block merges** (no repository or ruleset yet, B6). **S0.3 will not start until the commit and repository setup are reviewed.**
+**Current task:** S0.2 (CI pipeline) **committed at `7563d15d5c8b2eea3436a15d9b04359a2761a4bf`** (2026-10-14). CI has not run on GitHub and **does not block merges** (no repository or ruleset yet, B6). **S0.3 will not start until the repository setup is reviewed and the PO approves.**
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -30,7 +30,7 @@
 | Story | Status | Notes |
 |---|---|---|
 | **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C (needs Docker). Committed `df3a7cd`. |
-| **S0.2** CI pipeline | 🟡 **Direction approved; final review done; commit awaiting approval** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository (B6). See "S0.2 report". |
+| **S0.2** CI pipeline | 🟡 **Committed `7563d15`; GitHub verification pending** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository and the `CI OK` ruleset (B6). See "S0.2 report". |
 | S0.3 Toolchain pinning | ⚪ Not started | pnpm is now available |
 | S0.4 DB foundation and RLS | ⚪ Not started | Needs Docker (B2). **S0.1-C must be completed first.** |
 | S0.5 Isolation harness | ⚪ Not started | Needs Docker (B2) |
@@ -111,7 +111,7 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | Check | Result |
 |---|---|
 | actionlint 1.7.12 (checksum-verified) on `ci.yml` | ✅ 0 errors (the first attempt used a wrong flag, `-color=never`, and was re-run with `-no-color`) |
-| actionlint + shellcheck 0.11.0 (shell steps) | ✅ 0 errors. shellcheck publishes no checksum file, so that download was not checksum-verified. |
+| actionlint + shellcheck 0.11.0 (shell steps) | ✅ 0 errors. shellcheck publishes no checksum file; the download was verified against GitHub's published release-asset SHA-256 digest (`sha256:8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e`, 8,068,167 bytes), which matched (see "Final review"). |
 | gitleaks 8.30.1 (checksum-verified): `git` history (same command as CI) | ✅ 1 commit, no leaks |
 | gitleaks `dir` on the working tree (including uncommitted files) | ✅ No leaks |
 | gitleaks positive control (random fake `ghp_` token in a scratch folder) | ✅ Detected, exit 1, so the scanner works |
@@ -153,6 +153,7 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 Approved: D1 (plan), D2 (suppression scope, with safeguards), D3 (unsubscribe scope), D4 (guardrails, with safeguards), S0.1-A (S0.1 AC amendment). All on 2026-10-14.
 **D5 recorded (2026-10-14):** Option B (lean beta) preferred, **subject to a verified AWS Pricing Calculator estimate before any provisioning** (S2.7).
 **S0.1 commit:** approved by the PO and created as `df3a7cd` (38 files) on 2026-10-14.
+**S0.2 commit:** approved by the PO and created as `7563d15d5c8b2eea3436a15d9b04359a2761a4bf` (7 files) on 2026-10-14.
 
 ## Blockers
 
