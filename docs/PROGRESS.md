@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.1 ✅ **closed with an approved carry-over** (Docker-dependent AC 2 and 3 → item **S0.1-C**). **Awaiting PO approval to commit.** S0.2 has not started.
+**Current task:** S0.2 (CI pipeline): direction **approved by the PO 2026-10-14**; final review done. **Commit awaiting PO approval.** CI has not run on GitHub and **does not block merges** (no repository or ruleset yet, B6). **S0.3 will not start until the commit and repository setup are reviewed.**
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -29,8 +29,8 @@
 
 | Story | Status | Notes |
 |---|---|---|
-| **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C (needs Docker). Commit awaiting PO approval. |
-| S0.2 CI pipeline | ⚪ Not started | Waiting for S0.1 review |
+| **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C (needs Docker). Committed `df3a7cd`. |
+| **S0.2** CI pipeline | 🟡 **Direction approved; final review done; commit awaiting approval** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository (B6). See "S0.2 report". |
 | S0.3 Toolchain pinning | ⚪ Not started | pnpm is now available |
 | S0.4 DB foundation and RLS | ⚪ Not started | Needs Docker (B2). **S0.1-C must be completed first.** |
 | S0.5 Isolation harness | ⚪ Not started | Needs Docker (B2) |
@@ -90,6 +90,45 @@
 
 **Not done in S0.1, by instruction:** no dependencies installed, no Docker or system software installed, no AWS configuration, **no git commit** (files are untracked and await review).
 
+### S0.2 report (2026-10-14)
+
+**Built:** `.github/workflows/ci.yml` with these jobs:
+- `secret-scan`: gitleaks 8.30.1, checksum-verified, full history.
+- `quality`: frozen-lockfile install, lint, typecheck, unit tests.
+- `integration`: Testcontainers on the runner's Docker.
+- `ci-ok`: the aggregate gate.
+
+Actions are SHA-pinned, permissions are read-only, each job has a time limit (≤ 15 min), and the runner is `ubuntu-24.04`. Root scripts `lint`, `typecheck`, `test:unit` and `test:integration` fan out with `pnpm -r --if-present`. Documented in `docs/ci.md`.
+
+**Acceptance criteria status:**
+| AC | Status |
+|---|---|
+| (1) Each PR runs frozen-lockfile install, lint, typecheck, unit, integration and gitleaks | 🟡 **Defined and validated locally.** Not yet executed by GitHub Actions (no remote). ⚠️ Lint, typecheck and tests **run zero checks until packages exist** (S0.3+). |
+| (2) Any failure blocks the merge | 🟡 Failure propagation proven locally (fixture workspace and gate-logic tests). **Enforcement needs a GitHub repository plus a branch ruleset requiring `CI OK`** (B6, `docs/ci.md`). |
+| (3) Runtime under 15 min | 🟡 Each job's limit is ≤ 15 min and the jobs run in parallel. **Actual runtime not measured** (no GitHub run yet). |
+
+**Checks run (all with tools in the session scratch directory, not added to the project):**
+| Check | Result |
+|---|---|
+| actionlint 1.7.12 (checksum-verified) on `ci.yml` | ✅ 0 errors (the first attempt used a wrong flag, `-color=never`, and was re-run with `-no-color`) |
+| actionlint + shellcheck 0.11.0 (shell steps) | ✅ 0 errors. shellcheck publishes no checksum file, so that download was not checksum-verified. |
+| gitleaks 8.30.1 (checksum-verified): `git` history (same command as CI) | ✅ 1 commit, no leaks |
+| gitleaks `dir` on the working tree (including uncommitted files) | ✅ No leaks |
+| gitleaks positive control (random fake `ghp_` token in a scratch folder) | ✅ Detected, exit 1, so the scanner works |
+| `pnpm run lint`, `typecheck`, `test:unit`, `test:integration` in the repo | ✅ Exit 0 (no packages yet, zero checks run) |
+| Fixture workspace: one package passing lint + one failing | ✅ Root `pnpm run lint` exit 1, so a failure propagates |
+| Fixture: only the passing package | ✅ Exit 0; packages without the script are skipped |
+| `ci-ok` gate logic with jq 1.8.2 (checksum-verified) on simulated job results | ✅ all success → 0; failure, skipped or cancelled → 1 |
+
+**Final review (2026-10-14, after PO feedback):**
+- **Zero-check condition made explicit in CI:** new `scripts/report-check-coverage.mjs` (root script `checks:coverage`) runs in the `quality` job. It prints `::warning` annotations and a job-summary table for every check that no package defines. Tested: 0 packages → 4 warnings, exit 0; simulated GitHub → annotations and summary table written; a fixture with 2 packages → correct counts. A Node DEP0190 warning on Windows was fixed by using a constant command string.
+- **Permissions hardened:** workflow-level `permissions: {}`; checkout jobs get `contents: read`; `CI OK` gets `{}`.
+- **Untrusted-PR review:** `pull_request` only (no `pull_request_target`), 0 `secrets.*` references, 0 write permissions, 0 `github.event.*` values in `run:` scripts, no caches, GitHub-owned SHA-pinned actions only. Details in `docs/ci.md` § Security review.
+- **shellcheck checksum resolved:** the download matched GitHub's release-asset SHA-256 digest (`8a4e35ab…a2e740e`, 8,068,167 bytes).
+- actionlint + shellcheck re-run on the final workflow: 0 errors.
+
+**Still unverified (needs the GitHub repository):** GitHub execution of all jobs; **merge protection** (CI does **not** block merges until a ruleset or branch protection requires `CI OK`); Node 26 on `ubuntu-24.04` via `setup-node` v7.0.0; `npm --allow-scripts` on the runner; actual CI duration.
+
 ## Open technical items
 
 | # | Item | Needed by | Notes |
@@ -113,12 +152,13 @@
 
 Approved: D1 (plan), D2 (suppression scope, with safeguards), D3 (unsubscribe scope), D4 (guardrails, with safeguards), S0.1-A (S0.1 AC amendment). All on 2026-10-14.
 **D5 recorded (2026-10-14):** Option B (lean beta) preferred, **subject to a verified AWS Pricing Calculator estimate before any provisioning** (S2.7).
-**Instruction:** S0.1 is not to be committed until the PO approves the commit after verification.
+**S0.1 commit:** approved by the PO and created as `df3a7cd` (38 files) on 2026-10-14.
 
 ## Blockers
 
 | # | Blocker | Impact | Action needed |
 |---|---|---|---|
+| B6 | **No GitHub repository or remote** | CI can't run, merges can't be blocked, runtime can't be measured (S0.2 AC 1–3 on GitHub) | **PO decision (2026-10-14):** a **private** repository named **`dhanuka-mails`** under the PO's **personal** GitHub account. The PO creates it. Claude must **not** add the remote, authenticate or push until the PO confirms the repository exists **and** explicitly authorises the push. Then apply the Actions settings and the `CI OK` ruleset (`docs/ci.md`). |
 | B2 | Docker Desktop not installed | S0.1 AC (2) and (3), and S0.4, S0.5, S0.7 | **The PO is installing** Docker Desktop (WSL2) |
 | B4 | AWS accounts and SES production access | Sprint 2 | Create accounts by Sprint 2 |
 | B5 | Domains (D8) | Sprint 2 | Product owner provides them |

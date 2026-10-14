@@ -10,6 +10,11 @@
     "pnpm": "12.11.2"
   },
   "scripts": {
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test:unit": "pnpm -r --if-present run test:unit",
+    "test:integration": "pnpm -r --if-present run test:integration",
+    "checks:coverage": "node scripts/report-check-coverage.mjs",
     "infra:up": "docker compose --project-directory . -f infra/docker/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --project-directory . -f infra/docker/docker-compose.yml down",
     "infra:ps": "docker compose --project-directory . -f infra/docker/docker-compose.yml ps",

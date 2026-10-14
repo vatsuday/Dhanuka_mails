@@ -40,4 +40,5 @@ The `infra:*` scripts only need Docker. Once pnpm is installed, `pnpm infra:up` 
 | [08 — AWS cost estimate](docs/08-aws-cost-estimate.md) | Beta cost options A and B |
 | [ADRs](docs/adr/README.md) | Architecture decision records 001–015 |
 | [Phase 1 review](docs/reviews/phase1-review.md) | Findings and resolution status |
+| [CI pipeline](docs/ci.md) | Jobs, required branch protection, supply-chain pinning |
 | [Progress](docs/PROGRESS.md) | Checklist, decisions awaiting approval, blockers, risks |
