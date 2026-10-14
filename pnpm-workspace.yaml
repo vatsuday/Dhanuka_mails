@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 12 reads its settings from this file. It ignores engine-strict and save-exact in .npmrc
+# (verified 2026-10-14 with `pnpm config get`).
+# Fail installs on an unsupported Node or pnpm version (see package.json "engines").
+engineStrict: true
+# Record exact versions, never ranges (ADR-006).
+savePrefix: ""
