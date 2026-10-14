@@ -1,0 +1,32 @@
+{
+  "name": "@dm/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Config loading, logging, request IDs and health checks shared by all apps",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@dm/config": "workspace:*",
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "eslint": "catalog:",
+    "ioredis": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

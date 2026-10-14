@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** **S0.3 (toolchain pinning): implemented, verified and approved by the PO (2026-10-14); committed locally, push pending.** S0.2 is committed (`7563d15`) and pushed; the first CI run passed (PO report). CI **does not block merges** until the `CI OK` ruleset is applied. S0.4 has not started (also needs Docker, B2).
+**Current task:** **S0.6 (config, logging, health): done and approved by the PO (2026-10-14); committed locally, push pending.** CI **does not block merges** until the `CI OK` ruleset is applied. S0.4, S0.5 and S0.7 need Docker (B2).
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -34,7 +34,7 @@
 | **S0.3** Toolchain pinning | ✅ **Done; PO approved 2026-10-14** | See "S0.3 report" |
 | S0.4 DB foundation and RLS | ⚪ Not started | Needs Docker (B2). **S0.1-C must be completed first.** |
 | S0.5 Isolation harness | ⚪ Not started | Needs Docker (B2) |
-| S0.6 Config, logging, health | ⚪ Not started | |
+| **S0.6** Config, logging, health | ✅ **Done; PO approved 2026-10-14** | AC amended (S0.6-A): per-app wiring → S0.8, live `/ready` check → S0.4. See "S0.6 report". |
 | S0.7 Queue spike | ⚪ Not started | Needs Docker (B2) |
 | S0.8 App skeletons | ⚪ Not started | |
 
@@ -165,6 +165,41 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 
 **Note:** pnpm placed its content-addressable store at `D:.pnpm-store` (drive root, outside the repository).
 
+### S0.6 report (2026-10-14)
+
+**Built:** `packages/shared` (`@dm/shared`), exporting TypeScript source (**ADR-016**, proposed):
+- **`loadConfig()`** (zod 4): base settings (`APP_ENV`, `LOG_LEVEL`, `SENDING_MODE`, live approvals) plus composable shapes for the database, Valkey and HTTP. Fails fast with **every** problem listed by variable name, **never the value**. Empty strings count as unset, and the result is frozen.
+- **Cross-field rules:** `live` only when `APP_ENV=production` **and** both approval variables are set (ADR-011); the queue and cache Valkey URLs must differ (ADR-004).
+- **`createLogger()`** (pino): JSON with level label, service, env and ISO time. Redacts passwords, tokens, secrets, API keys, cookies, authorization headers and connection URLs at the top level and up to two levels deep. `redactUrl()` masks passwords in URLs for safe config logging.
+- **Request IDs:** a well-formed incoming `X-Request-ID` is reused, otherwise a UUID is generated. It appears as `request_id` on every request log line and is echoed in the response header. Uses Fastify 5.12's `LogController`; the deprecated option was removed after a warning appeared in testing.
+- **`registerHealthRoutes()`:** `GET /health` (liveness, no dependency calls) and `GET /ready` (readiness: checks run in parallel with per-check timeouts, 503 on failure, **error details logged server-side, never returned**). Probes: `postgresCheck` (`select 1`) and `valkeyCheck` (`PING`).
+- **Base tsconfig:** added `erasableSyntaxOnly` and `rewriteRelativeImportExtensions` (ADR-016).
+- **Catalog:** added `@types/pg` 8.23.1 (2026-08-17, satisfies the 14-day rule).
+- **`.env.example`:** now complete (runtime, sending, database, Valkey and HTTP variables, plus the docker-compose ones).
+
+**Acceptance criteria:**
+| AC | Status |
+|---|---|
+| (1) zod loader fails fast with a clear message | ✅ Tested: all problems in one error, by name; allowed values listed; secrets never echoed (tested with a planted secret in 3 variables) |
+| (2) `.env.example` complete | ✅ Tested: it parses into a valid config, and every variable in the shared schemas is documented in it |
+| (3) pino JSON logs include `request_id` | ✅ Tested through a real Fastify server: every request line carries the same `request_id`; reused or generated as appropriate; unsafe IDs (log injection, too long) are replaced |
+| (4) Secrets redacted; tested | ✅ 8 planted secrets (top level, nested, headers, connection URL) absent from the output. **Limit:** keys nested deeper than two levels aren't matched; avoid logging deep objects that contain secrets. |
+| (5) `/health` and `/ready` for each app; `/ready` checks the DB and both Valkey instances | 🟡 **Partly met.** The reusable plugin and the Postgres and Valkey probes are built and tested (fakes, timeouts, and real `pg`/`ioredis` clients against a closed port). **Not done:** per-app wiring (no apps until S0.8), and `/ready` against a *running* Postgres and Valkey (needs Docker). **Proposed amendment S0.6-A** moves these to S0.8 and S0.1-C/S0.4. |
+| (6) `SENDING_MODE` defaults to `sink`; `live` rejected outside production; tested | ✅ Default tested; `live` rejected in development, test and staging (even with approvals) and in production without both approvals; accepted only in production with both |
+
+**Checks run:**
+| Check | Result |
+|---|---|
+| Node 26 native TypeScript (scratch) | ✅ `.ts` imports run; `enum` rejected (non-erasable) |
+| `@dm/shared` typecheck / lint | ✅ After fixes. Lint found 9 issues in the first draft, and typecheck found the Fastify helpers didn't accept a pino-typed app (would have broken S0.8); both fixed. |
+| `@dm/shared` unit tests (Vitest) | ✅ **45 passed**, 4 files (config 21, logger 6, request IDs 9, health 9) |
+| Mutation check (3 deliberate breakages, then restored) | ✅ All caught: redaction off → 1 failure; live rule removed → 3 failures; `/ready` always 200 → 1 failure. 45/45 pass after restore. |
+| Plain-Node import of `src/index.ts` (no Vitest) | ✅ 20 exports; config, `redactUrl` and the fail-fast message work |
+| Repo: frozen install, peers, lint, typecheck, test:unit, test:integration | ✅ All exit 0; no peer issues |
+| `checks:coverage` | lint 2, typecheck 2, **test:unit 1 (45 tests)**, test:integration 0 (warned) |
+| gitleaks on the working tree | ✅ No leaks (including the local example `DATABASE_URL`) |
+| `git diff --check` | ✅ Clean |
+
 ## Open technical items
 
 | # | Item | Needed by | Notes |
@@ -185,6 +220,11 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | D11 | Pricing and plans; trial vs free tier | Trial plus review | Sprint 8 |
 | D12 | Abuse-review owner and SLA (including the 2-business-day suppression re-check SLA) | Assign | Sprint 7 |
 | D13 | Legal: ToS, AUP, privacy policy, DPA, DPDP notice, grievance contact, CERT-In contact | Engage counsel | Before beta |
+
+**Approved by the PO (2026-10-14), S0.6:**
+- **S0.6-A:** per-app `/health` and `/ready` wiring moved to S0.8; the live `/ready` check against running Postgres and Valkey moved to S0.4.
+- **ADR-016** accepted.
+- **S0.6 commit** approved.
 
 **pnpm exception approved by the PO (2026-10-14):** pnpm **12.11.2** (published 2026-10-09) is younger than the 14-day rule. It is accepted as an exception, because it was adopted in S0.1 before the rule and ran in CI, and will be replaced at the next tool upgrade (ADR-006).
 **S0.3 commit:** approved by the PO (2026-10-14).

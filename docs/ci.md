@@ -3,10 +3,11 @@
 **Workflow:** `.github/workflows/ci.yml` (story S0.2)
 **Status:** Defined and validated locally (2026-10-14). **Not yet run on GitHub.** The repository has no remote (blocker B6). **CI does not block merges yet.** It only will once a GitHub ruleset or branch protection rule on `main` requires the `CI OK` check to pass (see "Required GitHub settings").
 
-> **Check coverage (current, after S0.3):** one workspace package exists, `@dm/config`.
-> - `lint` and `typecheck` run **real checks on that package only**: ESLint and `tsc` over its preset files.
-> - `test:unit` and `test:integration` still **execute no checks at all** (zero packages define them). The `checks:coverage` step prints a `::warning` for each and a table in the job summary.
-> - Coverage grows as S0.4 and later stories add packages.
+> **Check coverage (current, after S0.6):** two workspace packages exist, `@dm/config` and `@dm/shared`.
+> - `lint` and `typecheck` run on both.
+> - `test:unit` runs **45 real tests** in `@dm/shared`.
+> - `test:integration` still **executes no checks** (no package defines it), and the `checks:coverage` step warns about it.
+> - Integration tests arrive with S0.4/S0.5 (Docker / Testcontainers).
 
 ## Triggers
 
@@ -36,7 +37,7 @@ test:integration -> pnpm -r --if-present run test:integration
 
 - **Adding checks:** a package opts in by defining the script. Packages without it are skipped.
 - **Failures:** any failing package fails the root command, which fails the job (verified with a fixture workspace).
-- **⚠️ Current state (after S0.3):** lint and typecheck cover one package (`@dm/config`). Both test steps **run zero checks and pass trivially** until S0.4/S0.5 (DB and isolation tests) and S0.8 (apps) add tests.
+- **⚠️ Current state (after S0.6):** lint and typecheck cover `@dm/config` and `@dm/shared`; unit tests cover `@dm/shared`. **Integration tests run zero checks** until S0.4/S0.5.
 
 ## Supply-chain controls
 

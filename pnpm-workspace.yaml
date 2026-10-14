@@ -38,6 +38,7 @@ catalog:
   "@node-rs/argon2": 2.2.1
   "@playwright/test": 1.63.0
   "@types/node": 26.6.3
+  "@types/pg": 8.23.1
   bullmq: 6.3.10
   drizzle-kit: 0.31.11
   drizzle-orm: 0.45.3
