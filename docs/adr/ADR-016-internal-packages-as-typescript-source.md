@@ -14,7 +14,10 @@ Node 26 runs TypeScript files directly, by stripping type annotations, for code 
 - The shared base tsconfig (`@dm/config/tsconfig.base.json`) enforces this with:
   - `erasableSyntaxOnly: true`: no `enum`, `namespace`, parameter properties or other syntax that needs emitting;
   - `rewriteRelativeImportExtensions: true`: relative imports use real `.ts` file extensions.
-- **Apps decide their own build** in S0.8. Next.js compiles workspace packages itself. Node services can run the TypeScript directly or be bundled for the container; that is decided in S0.8 and recorded there.
+- **How the apps run (decided in S0.8):**
+  - **Node services** (`api`, `tracker`, `worker`, `webhook-worker`, `admin`) have **no build step**. `start` is `node src/main.ts`, and `dev` adds `--watch` and `--env-file-if-exists=../../.env`. Node follows the workspace symlink to `packages/shared/src/index.ts`, outside `node_modules`, so type stripping applies (verified in S0.8). For these apps, "build" means typecheck plus a successful start, both checked in CI (`typecheck` and `smoke:apps`).
+  - **`web`** is built with `next build` (`output: 'standalone'`). `start` runs the standalone `server.js` through `apps/web/scripts/start.mjs`, the same way the container will.
+  - Container images come in Sprint 2 (S2.6).
 
 ## Consequences
 - No `dist/` folders and no build ordering between internal packages.

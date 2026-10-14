@@ -24,7 +24,20 @@ npm run infra:ps
 npm run infra:down        # or infra:reset to also delete volumes
 ```
 
-The `infra:*` scripts only need Docker. Once pnpm is installed, `pnpm infra:up` works too. App workspaces (`apps/*`, `packages/*`) are added from S0.2 onwards. Until then there is nothing to `pnpm install` or `pnpm dev`.
+The `infra:*` scripts only need Docker. Once pnpm is installed, `pnpm infra:up` works too.
+
+**Apps** (ports and checks in [`apps/README.md`](apps/README.md)):
+
+```sh
+pnpm install
+cp .env.example .env      # the apps read it in dev mode
+pnpm dev                  # all six apps: web :3000, api :3001 … admin :3005
+pnpm build                # Next.js production build (Node apps need no build, ADR-016)
+pnpm smoke:apps           # boots every Node app and probes /health and /ready
+pnpm test:e2e             # Playwright against the built web app (uses your installed Chrome locally)
+```
+
+Without Docker running, every Node app's `/ready` returns 503. That's expected; `/health` still returns 200.
 
 ## Documentation
 

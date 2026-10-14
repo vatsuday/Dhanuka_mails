@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { LogController, type FastifyBaseLogger, type FastifyServerOptions } from 'fastify';
+import { LogController, type FastifyBaseLogger } from 'fastify';
 import type { IncomingMessage } from 'node:http';
-import type { Logger } from 'pino';
 import type { AppWithLogger } from './health.ts';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
@@ -15,10 +14,9 @@ export function resolveRequestId(incoming: string | string[] | undefined): strin
 }
 
 /** Fastify options that make every request log line carry `request_id`. */
-export function observabilityServerOptions(logger: Logger): Pick<
-  FastifyServerOptions,
-  'loggerInstance' | 'logController' | 'genReqId'
-> {
+export function observabilityServerOptions<L extends FastifyBaseLogger>(
+  logger: L,
+): { loggerInstance: L; logController: LogController; genReqId: (req: IncomingMessage) => string } {
   return {
     loggerInstance: logger,
     logController: new LogController({ requestIdLogLabel: 'request_id' }),

@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** **S0.6 (config, logging, health): done and approved by the PO (2026-10-14); committed locally, push pending.** CI **does not block merges** until the `CI OK` ruleset is applied. S0.4, S0.5 and S0.7 need Docker (B2).
+**Current task:** **S0.8 (app skeletons): done and approved by the PO (2026-10-14); committed locally, push pending.** Sprint 0 stories that don't need Docker are complete. S0.4, S0.5, S0.7 and the S0.1-C carry-over need Docker (B2). CI **does not block merges** until the `CI OK` ruleset is applied.
 **Last updated:** 2026-10-14
 
 ## Phases
@@ -36,7 +36,7 @@
 | S0.5 Isolation harness | ⚪ Not started | Needs Docker (B2) |
 | **S0.6** Config, logging, health | ✅ **Done; PO approved 2026-10-14** | AC amended (S0.6-A): per-app wiring → S0.8, live `/ready` check → S0.4. See "S0.6 report". |
 | S0.7 Queue spike | ⚪ Not started | Needs Docker (B2) |
-| S0.8 App skeletons | ⚪ Not started | |
+| **S0.8** App skeletons | ✅ **Done; PO approved 2026-10-14** | AC 3 moved to S0.7 (S0.8-A). See "S0.8 report". |
 
 ### S0.1 report (2026-10-14)
 
@@ -200,6 +200,54 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | gitleaks on the working tree | ✅ No leaks (including the local example `DATABASE_URL`) |
 | `git diff --check` | ✅ Clean |
 
+### S0.8 report (2026-10-14)
+
+**Built:**
+- **Six apps:**
+  - `web` (Next.js 16.3.7, App Router, standalone output; `/health` and `/ready` route handlers; Playwright smoke test);
+  - `api`, `tracker`, `worker`, `webhook-worker` and `admin` (Fastify via `@dm/shared`). Each connects only its own dependencies and listens on ports 3001–3005 (`apps/README.md`).
+- **New in `@dm/shared`:**
+  - `connectDependencies()`: pg pool and Valkey clients with readiness checks; logs URLs without passwords and deduplicates repeated connection errors;
+  - `startHttpService()` / `buildHttpService()`: logging, request IDs, `/health`, `/ready`, graceful SIGTERM/SIGINT shutdown;
+  - `loadConfigOrExit()`: prints the clear config message and exits 1, with no stack trace.
+- **Root scripts:** `dev`, `build`, `test:e2e`, and `smoke:apps` (`scripts/smoke-apps.mjs`). `checks:coverage` now also tracks `build` and `test:e2e`.
+- **CI:**
+  - `quality` job gains `build` and `smoke:apps`;
+  - new `e2e` job (Playwright Chromium on the runner);
+  - `CI OK` requires all four jobs;
+  - `NEXT_TELEMETRY_DISABLED=1`.
+- **Shared presets:** Node globals for `.js`/`.mjs` files (`globals` 17.12.0).
+- **Catalog additions:** `@types/react` / `@types/react-dom` 19.3.0 and `globals` 17.12.0, all at least 14 days old.
+- **`.gitignore`:** `next-env.d.ts` (generated).
+- **ADR-016 application:** Node apps run from TypeScript source with no build step, and `web` runs the standalone `server.js`.
+
+**Acceptance criteria:**
+| AC | Status |
+|---|---|
+| (0) `pnpm dev` starts every app | ✅ Ran `pnpm dev` with the `.env.example` values exported in the shell (no `.env` file created). All six answered `/health` 200 within about 2 s; Node apps' `/ready` gave 503 (no Docker), web's `/ready` gave 200. Every process was then stopped by its root PID and ports 3000–3005 were confirmed free. |
+| (0b) Every app exposes `/health` and `/ready` with its own checks | ✅ `smoke:apps`: each Node app's `/ready` lists exactly its checks; web has none, by design (no direct DB or Valkey access) |
+| (1) All six apps build | ✅ `web`: `next build` succeeds. Node apps: per ADR-016 there is no compile step; "build" = typecheck ✅ + start ✅ (`smoke:apps`). |
+| (2) Playwright smoke test loads the web health page | ✅ 4/4 passed in installed Chrome against the standalone server: `/health` in a real browser, `/ready`, home page title and heading, no `x-powered-by` header |
+| (3) Worker sample job inside `withTenant`, integration-tested | ⏸ **Not done.** Needs `withTenant` (S0.4) and BullMQ (S0.7), both of which need Docker. **Proposed amendment S0.8-A:** move to S0.7. |
+
+**Checks run:**
+| Check | Result |
+|---|---|
+| Node type stripping through the `node_modules/@dm/shared` symlink | ✅ Resolves to `packages/shared/src/index.ts`; loads |
+| `@dm/shared` typecheck / lint / tests | ✅ **56 tests** (6 files). Typecheck caught that `buildHttpService` lost the pino logger type, and `observabilityServerOptions` was made generic to fix it. |
+| Five Node apps: typecheck and lint | ✅ All clean |
+| `smoke:apps` (local) | ✅ **28/28 checks**. Graceful-shutdown checks are skipped on Windows (SIGTERM force-kills) and run in CI on Linux. |
+| `web`: `next build`, typecheck (`next typegen` + tsc), lint | ✅ After 2 fixes: dot-notation in the Playwright config, and Node globals for `.mjs` in the preset |
+| `web`: Playwright | ✅ 4/4. A first run with `next start` warned that it doesn't support standalone output, so `start` now runs the standalone server. |
+| Full CI sequence locally, from a clean install | ✅ frozen install, peers, coverage, lint (9 s), typecheck (5 s), unit (3 s), integration (1 s), build (6 s), smoke (4 s), e2e (3 s), all exit 0 |
+| actionlint + shellcheck on the updated workflow | ✅ 0 errors. No `pull_request_target`, no secrets, no write permissions. |
+
+**Not verified (needs GitHub):** the new `e2e` job (Playwright Chromium install on the runner), `smoke:apps` graceful shutdown on Linux, and CI duration with the added steps.
+
+**Found during review:**
+- **`apps/web/AGENTS.md` and `CLAUDE.md` were generated by `next dev`** (Next.js 16 writes them when it detects an AI coding agent; confirmed in `next/dist/server/lib/generate-agent-files.js`). They contain Next.js's generic "read the bundled docs" instructions. **PO decision (2026-10-14): not tracked; gitignored.**
+- **gitleaks `dir` reports 9 `generic-api-key` findings, all inside the gitignored `apps/web/.next/`.** These are the per-build preview and server-action keys Next.js generates. None are in tracked or candidate files, and CI scans git history only. **Sprint 2 note:** container images must not bake in per-build keys inconsistently across instances; set `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` from Secrets Manager (track in S2.6).
+
 ## Open technical items
 
 | # | Item | Needed by | Notes |
@@ -220,6 +268,11 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | D11 | Pricing and plans; trial vs free tier | Trial plus review | Sprint 8 |
 | D12 | Abuse-review owner and SLA (including the 2-business-day suppression re-check SLA) | Assign | Sprint 7 |
 | D13 | Legal: ToS, AUP, privacy policy, DPA, DPDP notice, grievance contact, CERT-In contact | Engage counsel | Before beta |
+
+**Approved by the PO (2026-10-14), S0.8:**
+- **S0.8-A:** AC (3) moved to S0.7.
+- **`apps/web/AGENTS.md` / `CLAUDE.md`:** not tracked; added to `.gitignore` (local files kept, since `next dev` regenerates them).
+- **S0.8 commit** approved.
 
 **Approved by the PO (2026-10-14), S0.6:**
 - **S0.6-A:** per-app `/health` and `/ready` wiring moved to S0.8; the live `/ready` check against running Postgres and Valkey moved to S0.4.

@@ -10,10 +10,14 @@
     "pnpm": "12.11.2"
   },
   "scripts": {
+    "dev": "pnpm -r --parallel --if-present run dev",
+    "build": "pnpm -r --if-present run build",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test:unit": "pnpm -r --if-present run test:unit",
     "test:integration": "pnpm -r --if-present run test:integration",
+    "test:e2e": "pnpm -r --if-present run test:e2e",
+    "smoke:apps": "node scripts/smoke-apps.mjs",
     "checks:coverage": "node scripts/report-check-coverage.mjs",
     "infra:up": "docker compose --project-directory . -f infra/docker/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --project-directory . -f infra/docker/docker-compose.yml down",

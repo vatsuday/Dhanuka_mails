@@ -18,5 +18,8 @@
     "eslint": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:"
+  },
+  "dependencies": {
+    "globals": "catalog:"
   }
 }

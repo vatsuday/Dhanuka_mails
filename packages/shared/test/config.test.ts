@@ -167,3 +167,20 @@ describe('.env.example', () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe('loadConfigOrExit', () => {
+  it('returns the config when valid', async () => {
+    const { loadConfigOrExit } = await import('../src/config.ts');
+    expect(loadConfigOrExit({}, {}).SENDING_MODE).toBe('sink');
+  });
+
+  it('prints the clear message and exits with code 1 when invalid', async () => {
+    const { loadConfigOrExit } = await import('../src/config.ts');
+    const printed: string[] = [];
+    const exit = (code: number): never => {
+      throw new Error(`exit ${String(code)}`);
+    };
+    expect(() => loadConfigOrExit({}, { SENDING_MODE: 'smtp' }, exit, (m) => printed.push(m))).toThrow('exit 1');
+    expect(printed).toEqual(['Invalid configuration (1 problem):\n  - SENDING_MODE: must be one of: sink, sandbox, live']);
+  });
+});

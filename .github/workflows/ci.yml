@@ -29,6 +29,7 @@ env:
   GITLEAKS_LINUX_X64_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
   # Nothing in CI may deliver email externally (ADR-011).
   SENDING_MODE: sink
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
   secret-scan:
@@ -92,6 +93,13 @@ jobs:
       - name: Unit tests
         run: pnpm run test:unit
 
+      - name: Build
+        run: pnpm run build
+
+      # Boots every Node app as a real process; dependencies are unreachable on purpose, so /ready must be 503.
+      - name: Smoke-test every app (boot, /health, /ready, fail-fast, graceful shutdown)
+        run: pnpm run smoke:apps
+
   integration:
     name: Integration tests (Testcontainers)
     runs-on: ubuntu-24.04
@@ -123,12 +131,46 @@ jobs:
       - name: Integration tests
         run: pnpm run test:integration
 
+  e2e:
+    name: End-to-end smoke (Playwright)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js (version from .nvmrc)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install pnpm (pinned)
+        run: |
+          npm install -g --allow-scripts=pnpm "pnpm@${PNPM_VERSION}"
+          test "$(pnpm --version)" = "${PNPM_VERSION}"
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium (version matches the pinned @playwright/test)
+        run: pnpm --filter @dm/web exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm run build
+
+      - name: End-to-end tests
+        run: pnpm run test:e2e
+
   # The single required status check for branch protection (docs/ci.md).
   # It fails unless every job above succeeded, including when one was skipped or cancelled.
   ci-ok:
     name: CI OK
     if: always()
-    needs: [secret-scan, quality, integration]
+    needs: [secret-scan, quality, integration, e2e]
     runs-on: ubuntu-24.04
     permissions: {}
     timeout-minutes: 5

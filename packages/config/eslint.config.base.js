@@ -8,6 +8,7 @@
 //   ]);
 import js from '@eslint/js';
 import { defineConfig } from 'eslint/config';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
@@ -20,8 +21,10 @@ export default defineConfig([
     languageOptions: { parserOptions: { projectService: true } },
   },
   // JavaScript files (configs, scripts) get the base rules without type information.
+  // They run on Node, so Node's globals (process, console, ...) are defined.
   {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: globals.node },
   },
 ]);

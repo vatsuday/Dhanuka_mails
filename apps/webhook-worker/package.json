@@ -1,0 +1,24 @@
+{
+  "name": "@dm/webhook-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Outbound tenant webhooks on isolated egress (ADR-009). Serves /health and /ready; delivery arrives in Sprint 8.",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
+    "start": "node src/main.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dm/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@dm/config": "workspace:*",
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

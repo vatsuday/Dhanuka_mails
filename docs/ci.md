@@ -3,11 +3,12 @@
 **Workflow:** `.github/workflows/ci.yml` (story S0.2)
 **Status:** Defined and validated locally (2026-10-14). **Not yet run on GitHub.** The repository has no remote (blocker B6). **CI does not block merges yet.** It only will once a GitHub ruleset or branch protection rule on `main` requires the `CI OK` check to pass (see "Required GitHub settings").
 
-> **Check coverage (current, after S0.6):** two workspace packages exist, `@dm/config` and `@dm/shared`.
-> - `lint` and `typecheck` run on both.
-> - `test:unit` runs **45 real tests** in `@dm/shared`.
-> - `test:integration` still **executes no checks** (no package defines it), and the `checks:coverage` step warns about it.
-> - Integration tests arrive with S0.4/S0.5 (Docker / Testcontainers).
+> **Check coverage (current, after S0.8):** eight workspace packages.
+> - `lint` and `typecheck` run on all of them.
+> - `test:unit` runs **56 tests** in `@dm/shared`.
+> - `build` and `test:e2e` run on `@dm/web` (4 Playwright tests).
+> - `smoke:apps` boots all five Node apps.
+> - `test:integration` still **executes no checks**, and the `checks:coverage` step warns about it. Integration tests arrive with S0.4/S0.5 (Docker / Testcontainers).
 
 ## Triggers
 
@@ -18,9 +19,10 @@ Pull requests to `main`, pushes to `main`, and manual runs (`workflow_dispatch`)
 | Job | What it does | Time limit |
 |---|---|---|
 | `secret-scan` | Downloads gitleaks **8.30.1** (SHA-256 verified) and scans the **full git history** (`gitleaks git --redact --exit-code 1`) | 10 min |
-| `quality` | Node from `.nvmrc`, pnpm **12.11.2** (version asserted), `pnpm install --frozen-lockfile`, **`pnpm run checks:coverage`** (reports and warns about zero-check steps), then `pnpm run lint`, `typecheck`, `test:unit` | 15 min |
+| `quality` | Node from `.nvmrc`, pnpm **12.11.2** (version asserted), `pnpm install --frozen-lockfile`, **`pnpm run checks:coverage`** (reports and warns about zero-check steps), then `pnpm run lint`, `typecheck`, `test:unit`, **`build`**, and **`smoke:apps`** (boots every Node app: `/health` 200, `/ready` 503 with exactly that app's checks, fail-fast config, graceful SIGTERM shutdown) | 15 min |
 | `integration` | Same setup, then `docker version` and `pnpm run test:integration` (Testcontainers uses the runner's Docker) | 15 min |
-| `ci-ok` | Runs always. **Fails unless all three jobs above succeeded**, so a skipped or cancelled job also fails it. | 5 min |
+| `e2e` | Same setup, then `playwright install --with-deps chromium`, `pnpm run build`, `pnpm run test:e2e` (Playwright against the standalone Next.js server) | 15 min |
+| `ci-ok` | Runs always. **Fails unless all four jobs above succeeded**, so a skipped or cancelled job also fails it. | 5 min |
 
 The jobs run in parallel, so a run should finish in under 15 minutes (S0.2 AC 3). The time limits enforce this: a job that runs over is cancelled and the run fails.
 
@@ -37,7 +39,7 @@ test:integration -> pnpm -r --if-present run test:integration
 
 - **Adding checks:** a package opts in by defining the script. Packages without it are skipped.
 - **Failures:** any failing package fails the root command, which fails the job (verified with a fixture workspace).
-- **⚠️ Current state (after S0.6):** lint and typecheck cover `@dm/config` and `@dm/shared`; unit tests cover `@dm/shared`. **Integration tests run zero checks** until S0.4/S0.5.
+- **⚠️ Current state (after S0.8):** lint and typecheck cover all 8 packages; unit tests cover `@dm/shared`; e2e covers `@dm/web`. **Integration tests run zero checks** until S0.4/S0.5.
 
 ## Supply-chain controls
 

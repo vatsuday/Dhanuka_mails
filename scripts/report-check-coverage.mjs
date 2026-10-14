@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const CHECKS = ['lint', 'typecheck', 'test:unit', 'test:integration'];
+const CHECKS = ['lint', 'typecheck', 'test:unit', 'test:integration', 'build', 'test:e2e'];
 const root = process.cwd();
 const inGitHub = process.env.GITHUB_ACTIONS === 'true';
 

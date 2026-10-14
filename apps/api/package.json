@@ -1,0 +1,24 @@
+{
+  "name": "@dm/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tenant-facing REST API (dashboard and public API).",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
+    "start": "node src/main.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dm/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@dm/config": "workspace:*",
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

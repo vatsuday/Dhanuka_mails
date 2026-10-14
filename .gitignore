@@ -49,3 +49,9 @@ desktop.ini
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Next.js generated files
+next-env.d.ts
+# Next.js 16 writes these when `next dev` detects an AI coding agent (PO decision 2026-10-14: not tracked)
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

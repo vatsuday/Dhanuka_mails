@@ -65,7 +65,9 @@
 | Tests | testcontainers | 12.2.1 | **12.2.0** | 2026-09-28 | Loads (no Docker yet) | Container start verified with Docker (S0.4/S0.5) |
 | Tests | @playwright/test | 1.64.0 | **1.63.0** | 2026-09-04 | CLI ran | Browsers not installed yet (S0.8) |
 | Types | @types/node | 26.x | **26.6.3** | 2026-09-25 | In use |  |
-| Types | @types/pg | — | **8.23.1** | 2026-08-17 | In use (`@dm/shared` tests) | **Added in S0.6** for the Postgres readiness-probe tests |
+| Types | @types/pg | — | **8.23.1** | 2026-08-17 | In use (`@dm/shared`) | **Added in S0.6**; runtime dependency of `@dm/shared` since S0.8 |
+| Types | @types/react / @types/react-dom | — | **19.3.0** | 2026-09-09 | In use (`@dm/web`) | **Added in S0.8** |
+| Lint | globals | — | **17.12.0** | 2026-09-01 | In use (`@dm/config` preset) | **Added in S0.8:** Node globals for `.js`/`.mjs` files |
 
 **Install scripts:** denied by default. Reviewed denials (`allowBuilds` in `pnpm-workspace.yaml`): `cpu-features`, `ssh2`, `esbuild`, `msgpackr-extract`, `protobufjs`. All dependent tools were verified to work without them.
 

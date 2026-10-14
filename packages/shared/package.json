@@ -2,7 +2,7 @@
   "name": "@dm/shared",
   "version": "0.0.0",
   "private": true,
-  "description": "Config loading, logging, request IDs and health checks shared by all apps",
+  "description": "Config loading, logging, request IDs, health checks and HTTP service bootstrap shared by all apps",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,7 +13,10 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@types/pg": "catalog:",
     "fastify": "catalog:",
+    "ioredis": "catalog:",
+    "pg": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
@@ -21,10 +24,7 @@
     "@dm/config": "workspace:*",
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
-    "@types/pg": "catalog:",
     "eslint": "catalog:",
-    "ioredis": "catalog:",
-    "pg": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
     "vitest": "catalog:"

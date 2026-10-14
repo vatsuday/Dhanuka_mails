@@ -121,3 +121,26 @@ export function loadConfig<const Extra extends z.ZodRawShape>(
   }
   return Object.freeze(result.data);
 }
+
+/**
+ * For process entry points: loads the config, or prints the ConfigError message (no stack trace,
+ * no values) and exits with code 1. `exit` and `print` are injectable for tests.
+ */
+export function loadConfigOrExit<const Extra extends z.ZodRawShape>(
+  extra: Extra,
+  env: Env = process.env,
+  exit: (code: number) => never = (code) => process.exit(code),
+  print: (message: string) => void = (message) => {
+    console.error(message);
+  },
+): ReturnType<typeof loadConfig<Extra>> {
+  try {
+    return loadConfig(extra, env);
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      print(error.message);
+      return exit(1);
+    }
+    throw error;
+  }
+}
