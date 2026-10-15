@@ -24,6 +24,15 @@ npm run infra:ps
 npm run infra:down        # or infra:reset to also delete volumes
 ```
 
+**Database** (after `infra:up` and `pnpm install`; both commands are safe to re-run):
+
+```sh
+pnpm db:bootstrap         # roles, the app schema and grants, as the compose superuser
+pnpm db:migrate           # tables and row-level security, as app_migrator
+```
+
+Apps connect as `app_user`, which owns nothing and cannot bypass row-level security (ADR-002). Run both commands again after `infra:reset`.
+
 The `infra:*` scripts only need Docker. Once pnpm is installed, `pnpm infra:up` works too.
 
 **Apps** (ports and checks in [`apps/README.md`](apps/README.md)):

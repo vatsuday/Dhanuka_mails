@@ -62,7 +62,7 @@
 | MFA | otplib | 13.5.0 | **13.5.0** | 2026-08-21 | TOTP generate + verify ✅ | v13 API: `generate` / `verify` functions |
 | Logging | pino | 10.4.0 | **10.3.1** | 2026-02-09 | Loads |  |
 | Tests | vitest | 5.0.4 | **5.0.2** | 2026-09-25 | Real TypeScript test run ✅ |  |
-| Tests | testcontainers | 12.2.1 | **12.2.0** | 2026-09-28 | Loads (no Docker yet) | Container start verified with Docker (S0.4/S0.5) |
+| Tests | testcontainers | 12.2.1 | **12.2.0** | 2026-09-28 | Starts Postgres 18.6 and Valkey 8.1.10 containers (S0.4, 2026-10-15) | Windows Docker Desktop verified; Linux runner via CI |
 | Tests | @playwright/test | 1.64.0 | **1.63.0** | 2026-09-04 | CLI ran | Browsers not installed yet (S0.8) |
 | Types | @types/node | 26.x | **26.6.3** | 2026-09-25 | In use |  |
 | Types | @types/pg | — | **8.23.1** | 2026-08-17 | In use (`@dm/shared`) | **Added in S0.6**; runtime dependency of `@dm/shared` since S0.8 |

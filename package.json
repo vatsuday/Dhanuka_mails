@@ -22,6 +22,8 @@
     "infra:up": "docker compose --project-directory . -f infra/docker/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --project-directory . -f infra/docker/docker-compose.yml down",
     "infra:ps": "docker compose --project-directory . -f infra/docker/docker-compose.yml ps",
-    "infra:reset": "docker compose --project-directory . -f infra/docker/docker-compose.yml down --volumes"
+    "infra:reset": "docker compose --project-directory . -f infra/docker/docker-compose.yml down --volumes",
+    "db:bootstrap": "pnpm --filter @dm/db db:bootstrap",
+    "db:migrate": "pnpm --filter @dm/db db:migrate"
   }
 }

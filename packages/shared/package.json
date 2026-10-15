@@ -10,7 +10,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --exclude 'test/integration/**'",
+    "test:integration": "vitest run --dir test/integration --hookTimeout 180000 --testTimeout 30000"
   },
   "dependencies": {
     "@types/pg": "catalog:",
@@ -25,6 +26,7 @@
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
+    "testcontainers": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
     "vitest": "catalog:"

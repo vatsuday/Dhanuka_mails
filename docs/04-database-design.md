@@ -2,17 +2,18 @@
 
 **Status:** v1.0 — **approved** (Phase 1 approval: D1–D4, 2026-10-14). Changes from now on go through change control: update the doc, the ADR if relevant, and PROGRESS.md.
 **Engine:** PostgreSQL 18 (fallback 17)
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-15 (S0.4: tenant predicate uses `NULLIF`; database-level grants added to §2)
 
 ## 1. Conventions
 
 - **Primary keys:** `uuid` **v7**, from `uuidv7()` on PG 18 or generated in the application on PG 17.
 - **Tenant tables:** every one has `tenant_id uuid NOT NULL`, every index leads with `tenant_id`, and every one is marked 🔒 = `ENABLE` + `FORCE ROW LEVEL SECURITY` with:
   ```sql
-  USING      (tenant_id = (SELECT current_setting('app.tenant_id', true))::uuid)
-  WITH CHECK (tenant_id = (SELECT current_setting('app.tenant_id', true))::uuid)
+  USING      (tenant_id = (SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid))
+  WITH CHECK (tenant_id = (SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid))
   ```
   The `(SELECT …)` wrapper makes Postgres evaluate the setting once per query, not once per row.
+  **`NULLIF` is required (found in S0.4):** after a transaction-local `set_config`, a pooled connection returns `''` (not NULL) for the setting in later transactions, and `''::uuid` raises an error instead of returning zero rows. With `NULLIF` an unset tenant matches nothing (fail closed). An integration test covers it.
 - **Timestamps:** `timestamptz`. **Money:** `bigint` minor units plus `currency char(3)`.
 - **Email:** stored as `email` plus `email_normalized`. Normalisation trims, lowercases and converts the domain to IDNA/punycode. It does **not** strip dots or `+tags`.
 - **Phone:** `phone_e164`, with `+91` as the default region for parsing.
@@ -29,10 +30,18 @@ CREATE ROLE rls_lookup   NOLOGIN BYPASSRLS;         -- owns pre-tenant lookup fu
 CREATE ROLE app_admin_fn NOLOGIN BYPASSRLS;         -- owns operator functions
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON DATABASE <db> FROM PUBLIC;
+GRANT CONNECT ON DATABASE <db> TO app_migrator, app_user, admin_user;
+GRANT CREATE  ON DATABASE <db> TO app_migrator;  -- the Drizzle migrator always runs CREATE SCHEMA IF NOT EXISTS
+CREATE SCHEMA app AUTHORIZATION app_migrator;
 GRANT USAGE ON SCHEMA app TO app_user, admin_user;
+GRANT USAGE, CREATE ON SCHEMA app TO rls_lookup, app_admin_fn;  -- function owners
+GRANT rls_lookup, app_admin_fn TO app_migrator WITH INHERIT FALSE, SET TRUE;  -- lets migrations assign function owners
 -- Table grants are explicit per table (no blanket GRANT ALL).
 -- audit_logs: INSERT, SELECT only. platform_suppressions: no grants to app_user/admin_user.
 ```
+
+Implemented in `packages/db/sql/bootstrap.sql` (S0.4), run by `pnpm db:bootstrap` as a superuser. It is idempotent and re-asserts every role attribute.
 
 ## 3. Entity relationship overview
 
