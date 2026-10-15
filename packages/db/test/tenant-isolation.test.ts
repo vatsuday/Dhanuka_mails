@@ -156,10 +156,10 @@ describe('outside withTenant (S0.4 AC 4)', () => {
 });
 
 describe('grants (docs/04 §2)', () => {
-  it('app_user cannot delete tenants or insert users', async () => {
+  it('app_user cannot delete tenants or users', async () => {
     expect((await pgError(withTenant(app, tenantA, (tx) => tx.delete(tenants)))).message).toMatch(/permission denied for table tenants/);
-    expect((await pgError(appPool.query(`insert into app.users (email, email_normalized, password_hash) values ('z', 'z', 'z')`)))
-      .message).toMatch(/permission denied for table users/);
+    // Sign-up (S1.1) needs INSERT on users; deleting users is never allowed to the runtime role.
+    expect((await pgError(appPool.query('delete from app.users'))).message).toMatch(/permission denied for table users/);
   });
 
   it('admin_user has no direct access to tenant tables', async () => {

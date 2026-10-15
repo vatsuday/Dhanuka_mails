@@ -16,7 +16,9 @@ afterAll(async () => {
 
 describe('catalog after all migrations', () => {
   it('finds the tenant tables', async () => {
-    expect(await tenantTables(db.superuser)).toEqual(['app.contacts', 'app.memberships', 'app.tenants']);
+    expect(await tenantTables(db.superuser)).toEqual([
+      'app.audit_logs', 'app.contacts', 'app.memberships', 'app.tenant_sending_policies', 'app.tenants',
+    ]);
   });
 
   it('every tenant table has forced row-level security with a policy', async () => {

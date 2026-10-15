@@ -29,6 +29,16 @@ export const TENANT_TABLES: readonly TenantTable[] = [
     row: async (tenantId, fx) => ({ tenant_id: tenantId, user_id: await fx.newUser(), role: 'owner' }),
   },
   {
+    name: 'app.tenant_sending_policies',
+    tenantColumn: 'tenant_id',
+    row: (tenantId) => Promise.resolve({ tenant_id: tenantId }),
+  },
+  {
+    name: 'app.audit_logs',
+    tenantColumn: 'tenant_id',
+    row: (tenantId) => Promise.resolve({ tenant_id: tenantId, actor_type: 'system', action: 'isolation.seed' }),
+  },
+  {
     name: 'app.contacts',
     tenantColumn: 'tenant_id',
     row: (tenantId, fx) => Promise.resolve({ tenant_id: tenantId, email_normalized: `${fx.unique()}@example.in` }),

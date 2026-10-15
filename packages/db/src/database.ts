@@ -3,7 +3,10 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
-import * as schema from './schema.ts';
+import { auditLogs } from './audit-schema.ts';
+import * as tables from './schema.ts';
+
+const schema = { ...tables, auditLogs };
 
 export type Database = NodePgDatabase<typeof schema>;
 /** The transaction handed to a `withTenant` callback. */
@@ -29,6 +32,18 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 }
 
 /**
+ * Runs `fn` in a transaction bound to one signed-in user, for pre-tenant lookups such as
+ * `app.list_user_memberships`, which only answer for the bound user. Transaction-local, like withTenant.
+ */
+export async function withUser<T>(db: Database, userId: string, fn: (tx: TenantTransaction) => Promise<T>): Promise<T> {
+  if (!UUID.test(userId)) throw new TypeError('withUser: userId must be a UUID');
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_catalog.set_config('app.user_id', ${userId}, true)`);
+    return fn(tx);
+  });
+}
+
+/**
  * Runs `fn` in a transaction scoped to one tenant (ADR-002). The tenant is set with
  * `set_config(..., is_local => true)`, so it ends with the transaction and never leaks to the next
  * user of a pooled connection. Outside withTenant, row-level security returns zero rows.
@@ -38,10 +53,15 @@ export async function withTenant<T>(
   db: Database,
   tenantId: string,
   fn: (tx: TenantTransaction) => Promise<T>,
+  options: { userId?: string } = {},
 ): Promise<T> {
   if (!UUID.test(tenantId)) throw new TypeError('withTenant: tenantId must be a UUID');
+  if (options.userId !== undefined && !UUID.test(options.userId)) throw new TypeError('withTenant: userId must be a UUID');
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_catalog.set_config('app.tenant_id', ${tenantId}, true)`);
+    if (options.userId !== undefined) {
+      await tx.execute(sql`select pg_catalog.set_config('app.user_id', ${options.userId}, true)`);
+    }
     return fn(tx);
   });
 }

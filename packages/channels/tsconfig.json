@@ -1,0 +1,9 @@
+{
+  "extends": "@dm/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src", "test"]
+}
