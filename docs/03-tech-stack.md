@@ -52,7 +52,7 @@
 | DB | drizzle-orm | 0.45.4 | **0.45.3** | 2026-09-21 | pg table definition ✅ | Not 1.0 RC |
 | DB | drizzle-kit | 0.31.11 | **0.31.11** | 2026-09-21 | CLI ✅ (with esbuild script denied) |  |
 | DB driver | pg | 8.23.1 | **8.23.0** | 2026-08-08 | Client constructed | 8.23.1 was too new |
-| Queue | bullmq | 6.3.15 | **6.3.10** | 2026-09-29 | Loads | Behaviour spike in S0.7 (needs Docker) |
+| Queue | bullmq | 6.3.15 | **6.3.10** | 2026-09-29 | Spike passed (S0.7, 2026-10-15) | Kept over 5.x; see `docs/spikes/S0.7-queue-spike.md` |
 | Redis client | ioredis | 6.0.0 | **6.0.0** | 2026-07-31 | Lazy client ✅ |  |
 | Email | mjml | 5.4.1 | **5.4.1** | 2026-09-10 | Compile ✅; minify ✅ | Accepted upstream peer conflict: htmlnano wants cssnano ^8, gets 7.1.9 (see ADR-006) |
 | Templating | liquidjs | 10.30.0 | **10.29.0** | 2026-08-11 | HTML escaping ✅ |  |

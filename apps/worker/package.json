@@ -2,23 +2,32 @@
   "name": "@dm/worker",
   "version": "0.0.0",
   "private": true,
-  "description": "Background job processors. Serves /health and /ready on its port; job processors arrive with S0.7.",
+  "description": "Background job processors (BullMQ on valkey-queue). Serves /health and /ready on its port.",
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
     "start": "node src/main.ts",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test:integration": "vitest run"
   },
   "dependencies": {
-    "@dm/shared": "workspace:*"
+    "@dm/db": "workspace:*",
+    "@dm/shared": "workspace:*",
+    "bullmq": "catalog:",
+    "drizzle-orm": "catalog:",
+    "ioredis": "catalog:"
   },
   "devDependencies": {
     "@dm/config": "workspace:*",
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "eslint": "catalog:",
+    "pg": "catalog:",
+    "testcontainers": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

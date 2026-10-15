@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. **S0.4 done 2026-10-15. S0.5 done 2026-10-15** (AC 4's GitHub demonstration needs a PR opened by the PO). Next: S0.7. CI **does not block merges** until the `CI OK` ruleset is applied.
+**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. **S0.4 done 2026-10-15. S0.5 done 2026-10-15** (AC 4's GitHub demonstration needs a PR opened by the PO). **S0.7 done 2026-10-15.** **All Sprint 0 stories are implemented.** Remaining PO actions: the `CI OK` ruleset (B6), the S0.5 AC 4 demonstration PR, and the repository-visibility question. CI **does not block merges** until the `CI OK` ruleset is applied.
 **Last updated:** 2026-10-15
 
 ## Phases
@@ -35,7 +35,7 @@
 | **S0.4** DB foundation and RLS | ✅ **Done 2026-10-15** | All 5 AC met with integration tests on Testcontainers. See "S0.4 report". |
 | **S0.5** Isolation harness | ✅ **Done 2026-10-15** (AC 4 on GitHub pending a PO-opened PR) | See "S0.5 report". |
 | **S0.6** Config, logging, health | ✅ **Done; PO approved 2026-10-14** | AC amended (S0.6-A): per-app wiring → S0.8, live `/ready` check → S0.4. See "S0.6 report". |
-| S0.7 Queue spike | ⚪ Not started | Docker available |
+| **S0.7** Queue spike | ✅ **Done 2026-10-15** | BullMQ 6.3.10 kept. See "S0.7 report" and `docs/spikes/S0.7-queue-spike.md`. |
 | **S0.8** App skeletons | ✅ **Done; PO approved 2026-10-14** | AC 3 moved to S0.7 (S0.8-A). See "S0.8 report". |
 
 ### S0.1 report (2026-10-14)
@@ -55,6 +55,21 @@
 - `npm ls -g` shows no pnpm, and there is no `pnpm.cmd` in `%AppData%\npm`.
 - `wsl --status`: "The Windows Subsystem for Linux is not installed."
 - Conclusion: B2 and B3 are still open. No compose, YAML or service checks were run. Nothing was changed.
+
+### S0.7 report (2026-10-15)
+
+| AC | Result |
+|---|---|
+| (1) Retry with backoff, delayed jobs, repeatable jobs, stalled-job recovery after the worker is killed, `noeviction` | ✅ 8 tests in `apps/worker/test/integration/bullmq-spike.test.ts` against Valkey configured like `valkey-queue`. Stalled recovery kills a real worker process with `SIGKILL`. `noeviction` is shown to reject new jobs with `OOM` while keeping every accepted job. |
+| (2) Spike report | ✅ `docs/spikes/S0.7-queue-spike.md` |
+| (3) BullMQ 6 vs 5 decision in ADR-004 | ✅ **6.3.10 kept**; ADR-004 updated with the outcome and two rules |
+| (4) Worker sample job inside `withTenant`, integration-tested | ✅ `apps/worker/src/jobs/tenant-sample.ts`, wired in `apps/worker/src/main.ts`. 3 integration tests through BullMQ against migrated Postgres as `app_user`: correct per-tenant counts, nothing leaks to an empty tenant, non-UUID tenant fails. Also run once with the real worker process on the local stack (`{"activeContacts":0}` for a new tenant ID). |
+
+**Spike finding that changed the test:** the first stalled-recovery run failed. BullMQ throttles stalled checks with a key whose TTL is the last checker's `stalledInterval`, so a killed worker with the default 30 s delayed a 500 ms worker's recovery. Rule recorded in ADR-004: all workers on a queue share one `stalledInterval`.
+
+**Verification:** worker integration tests 10/10, three runs in a row. Full local CI sequence exit 0 (frozen install, lint, typecheck, unit, integration, build, smoke:apps, e2e, checks:coverage). Worker graceful shutdown with Valkey down is only checked by `smoke:apps` on Linux (CI).
+
+**New dependencies in `apps/worker`:** `bullmq`, `ioredis`, `drizzle-orm`, `@dm/db` (runtime); `testcontainers`, `vitest`, `pg`, `@types/pg` (dev). All from the existing catalog. `@dm/db` now also exports `@dm/db/testing` (the Testcontainers Postgres helper) for other packages' tests.
 
 ### S0.5 report (2026-10-15)
 
