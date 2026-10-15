@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. **S0.4 done 2026-10-15.** Next: S0.5, then S0.7. CI **does not block merges** until the `CI OK` ruleset is applied.
+**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. **S0.4 done 2026-10-15. S0.5 done 2026-10-15** (AC 4's GitHub demonstration needs a PR opened by the PO). Next: S0.7. CI **does not block merges** until the `CI OK` ruleset is applied.
 **Last updated:** 2026-10-15
 
 ## Phases
@@ -33,7 +33,7 @@
 | **S0.2** CI pipeline | 🟡 **Committed `7563d15`; GitHub verification pending** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository and the `CI OK` ruleset (B6). See "S0.2 report". |
 | **S0.3** Toolchain pinning | ✅ **Done; PO approved 2026-10-14** | See "S0.3 report" |
 | **S0.4** DB foundation and RLS | ✅ **Done 2026-10-15** | All 5 AC met with integration tests on Testcontainers. See "S0.4 report". |
-| S0.5 Isolation harness | ⚪ Not started | Docker available |
+| **S0.5** Isolation harness | ✅ **Done 2026-10-15** (AC 4 on GitHub pending a PO-opened PR) | See "S0.5 report". |
 | **S0.6** Config, logging, health | ✅ **Done; PO approved 2026-10-14** | AC amended (S0.6-A): per-app wiring → S0.8, live `/ready` check → S0.4. See "S0.6 report". |
 | S0.7 Queue spike | ⚪ Not started | Docker available |
 | **S0.8** App skeletons | ✅ **Done; PO approved 2026-10-14** | AC 3 moved to S0.7 (S0.8-A). See "S0.8 report". |
@@ -55,6 +55,24 @@
 - `npm ls -g` shows no pnpm, and there is no `pnpm.cmd` in `%AppData%\npm`.
 - `wsl --status`: "The Windows Subsystem for Linux is not installed."
 - Conclusion: B2 and B3 are still open. No compose, YAML or service checks were run. Nothing was changed.
+
+### S0.5 report (2026-10-15)
+
+**What was built** (all in `packages/db/test/`, run by `pnpm test:integration` and the CI `integration` job):
+- `tenant-tables.ts`: the **isolation registry**. Each tenant table declares its tenant column and a valid-row factory. Adding a table here is all the suite needs (DoD item 3).
+- `isolation.test.ts`: the reusable suite. For **every** registered table, as `app_user` through `withTenant`: a tenant sees only its own rows; cannot SELECT another tenant's rows by naming its ID; UPDATE and DELETE of another tenant's rows affect 0 rows (or are denied by grants) and the rows are unchanged; an INSERT with a spoofed tenant is rejected (`42501`); moving its own row to another tenant is rejected (`42501`); with no tenant set it sees 0 rows and cannot insert. All on one pooled connection, so leftover settings would be caught. **A registry-completeness test fails if any table with `tenant_id` is missing from the registry.**
+- `catalog.ts` + `catalog.test.ts`: catalog checks across **every non-system schema** (not just `app`): each tenant table must have RLS enabled **and** forced with at least one policy; each `SECURITY DEFINER` function must have `search_path=pg_catalog, pg_temp` and must not be executable by `PUBLIC` (a NULL ACL counts as PUBLIC-executable).
+
+| AC | Result |
+|---|---|
+| (1) Reusable suite: cross-tenant SELECT/INSERT/UPDATE/DELETE blocked, spoofed tenant rejected, unset tenant sees 0 rows | ✅ 6 tests × 3 tables + registry completeness = 19 tests |
+| (2) Catalog test fails on a `tenant_id` table without forced RLS | ✅ Clean on the migrated DB. Proven to fire on a table without RLS (3 violations) and on a table in another schema with RLS enabled but not forced. |
+| (3) Catalog test fails on an unpinned or PUBLIC-executable `SECURITY DEFINER` function | ✅ No such functions exist yet, so the clean check is vacuous today. Proven to fire on a function with no `search_path` and default PUBLIC execute, and on one pinned to `public, pg_temp`; a compliant function passes. |
+| (4) A deliberately broken table makes CI fail; demonstrated once | 🟡 **Locally demonstrated** (below) and **permanently covered** by the detector tests above. **GitHub demonstration pending:** CI only runs on `main` pushes and PRs to `main`, and Claude can't open PRs (no `gh`, no API token). Branch `demo/s0.5-broken-table` is pushed; the PO opens a PR from it, confirms the `integration` job fails, then closes the PR without merging and deletes the branch. |
+
+**Mutation check:** contacts policy changed to `USING (true)` → 4 of 6 contacts isolation tests fail (the 2 insert/move tests still pass because `WITH CHECK` is intact, as expected).
+
+**Verification:** `@dm/db` 52 integration tests pass (4 files). Local lint, typecheck, unit, integration and checks:coverage exit 0.
 
 ### S0.4 report (2026-10-15)
 
