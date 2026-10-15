@@ -5,6 +5,7 @@ import type {
   RawRequestDefaultExpression,
   RawServerDefault,
 } from 'fastify';
+import { PUBLIC_ROUTE } from './route-config.ts';
 
 /** Any Fastify app on the default HTTP server, whatever logger it was created with (for example pino). */
 export type AppWithLogger<Logger extends FastifyBaseLogger> = FastifyInstance<
@@ -84,9 +85,9 @@ export function registerHealthRoutes<Logger extends FastifyBaseLogger>(
   app: AppWithLogger<Logger>,
   options: HealthRoutesOptions,
 ): void {
-  app.get('/health', () => Promise.resolve({ status: 'ok' }));
+  app.get('/health', { config: PUBLIC_ROUTE }, () => Promise.resolve({ status: 'ok' }));
 
-  app.get('/ready', async (request, reply) => {
+  app.get('/ready', { config: PUBLIC_ROUTE }, async (request, reply) => {
     const { errors, ...report } = await runReadiness(options.checks, options.timeoutMs);
     for (const { name, error } of errors) {
       request.log.warn({ check: name, err: error }, 'readiness check failed');

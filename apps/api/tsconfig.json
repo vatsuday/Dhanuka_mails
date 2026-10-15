@@ -6,6 +6,8 @@
     "sourceMap": false
   },
   "include": [
-    "src"
+    "src",
+    "test",
+    "vitest.config.ts"
   ]
 }

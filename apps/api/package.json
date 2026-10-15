@@ -8,17 +8,29 @@
     "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
     "start": "node src/main.ts",
     "lint": "eslint .",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test:integration": "vitest run"
   },
   "dependencies": {
-    "@dm/shared": "workspace:*"
+    "@dm/channels": "workspace:*",
+    "@dm/core": "workspace:*",
+    "@dm/db": "workspace:*",
+    "@dm/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "fastify": "catalog:",
+    "ioredis": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@dm/config": "workspace:*",
     "@eslint/js": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "eslint": "catalog:",
+    "pg": "catalog:",
+    "testcontainers": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

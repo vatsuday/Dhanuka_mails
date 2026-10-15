@@ -1,0 +1,33 @@
+{
+  "name": "@dm/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Domain modules: identity (passwords, tokens, sessions, rate limits), tenancy (organisations, RBAC) and the audit writer",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:unit": "vitest run --exclude 'test/integration/**'",
+    "test:integration": "vitest run --dir test/integration --hookTimeout 180000 --testTimeout 30000"
+  },
+  "dependencies": {
+    "@dm/channels": "workspace:*",
+    "@dm/db": "workspace:*",
+    "@node-rs/argon2": "catalog:",
+    "drizzle-orm": "catalog:",
+    "ioredis": "catalog:"
+  },
+  "devDependencies": {
+    "@dm/config": "workspace:*",
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "testcontainers": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

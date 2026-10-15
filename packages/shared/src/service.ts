@@ -17,6 +17,11 @@ export interface HttpServiceOptions {
   register?: (app: AppWithLogger<Logger>) => void | Promise<void>;
   /** Install SIGTERM/SIGINT handlers that stop gracefully and exit (default true; tests pass false). */
   handleSignals?: boolean;
+  /**
+   * Which proxies to trust for the client IP (Fastify `trustProxy`). Default false. Set to the proxy
+   * addresses only (e.g. `127.0.0.1` behind the local Next.js rewrite, the ALB subnets in AWS), never `true`.
+   */
+  trustProxy?: boolean | string;
 }
 
 /**
@@ -26,8 +31,7 @@ export interface HttpServiceOptions {
 export async function buildHttpService(options: HttpServiceOptions): Promise<AppWithLogger<Logger>> {
   const app: AppWithLogger<Logger> = Fastify({
     ...observabilityServerOptions(options.logger),
-    // Behind the ALB in AWS; trust only the first proxy hop for client IPs (configured per environment later).
-    trustProxy: false,
+    trustProxy: options.trustProxy ?? false,
   });
   registerRequestIdHeader(app);
   registerHealthRoutes(app, { checks: options.checks });
