@@ -2,8 +2,8 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. **S0.4 done 2026-10-15. S0.5 done 2026-10-15** (AC 4's GitHub demonstration needs a PR opened by the PO). **S0.7 done 2026-10-15.** **All Sprint 0 stories are implemented.** Remaining PO actions: the `CI OK` ruleset (B6), the S0.5 AC 4 demonstration PR, and the repository-visibility question. CI **does not block merges** until the `CI OK` ruleset is applied.
-**Last updated:** 2026-10-15
+**Current task:** **Sprint 0 implementation complete (2026-10-15).** S0.1-C, S0.4, S0.5 and S0.7 were done on 2026-10-15; GitHub CI passed for each push (`c683d71`, `c3328c1`, `d41e7c1`, `e115b8b`; about 70 s per run, confirmed via the GitHub API). **Open PO actions:** (1) apply the Actions settings and `CI OK` ruleset (B6), because until then CI **does not block merges**; (2) open a PR from `demo/s0.5-broken-table`, confirm CI fails, close it unmerged and delete the branch (S0.5 AC 4); (3) confirm whether the repository should be public. **Next:** Sprint 0 review, then Sprint 1.
+**Last updated:** 2026-10-15 (Sprint 0 complete)
 
 ## Phases
 
