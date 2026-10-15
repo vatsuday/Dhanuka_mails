@@ -61,11 +61,17 @@ services:
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
 
   # SQS-compatible queue for the provider-event ingestion path (ADR-004).
+  # The native image serves only the SQS API on 9324; it has no web UI.
   elasticmq:
     image: softwaremill/elasticmq-native:1.7.1
     ports:
       - "127.0.0.1:${ELASTICMQ_PORT:-9324}:9324"
-      - "127.0.0.1:${ELASTICMQ_UI_PORT:-9325}:9325"
+    healthcheck:
+      # The image defines no healthcheck; busybox wget is the only HTTP client in it.
+      test: ["CMD", "wget", "-q", "-T", "2", "-O", "/dev/null", "http://127.0.0.1:9324/?Action=ListQueues"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   postgres-data:

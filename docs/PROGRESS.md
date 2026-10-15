@@ -2,7 +2,7 @@
 
 **Current phase:** Phase 2 — MVP build
 **Current sprint:** Sprint 0 (Foundation)
-**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** Next: S0.1-C, then S0.4, S0.5 and S0.7. CI **does not block merges** until the `CI OK` ruleset is applied.
+**Current task:** S0.8 committed (`0bbc51a`) and pushed; CI passed (confirmed via the GitHub API, 2026-10-15). **Every Sprint 0 story that doesn't need Docker is done.** **Docker is now installed and running (B2 resolved, 2026-10-15).** **S0.1-C verified and approved by the PO (2026-10-15)**, with findings F1 and F2 fixed. Next: S0.4, then S0.5 and S0.7. CI **does not block merges** until the `CI OK` ruleset is applied.
 **Last updated:** 2026-10-15
 
 ## Phases
@@ -29,7 +29,7 @@
 
 | Story | Status | Notes |
 |---|---|---|
-| **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C (needs Docker). Committed `df3a7cd`. |
+| **S0.1** Repo and local environment | ✅ **Closed with carry-over** (PO approved 2026-10-14) | AC 1 met. AC 2 and 3 carried over as S0.1-C. Committed `df3a7cd`. **S0.1-C done; PO approved 2026-10-15** (see "S0.1-C report"). |
 | **S0.2** CI pipeline | 🟡 **Committed `7563d15`; GitHub verification pending** | AC 1 defined and checked locally; AC 2 and 3 need a GitHub repository and the `CI OK` ruleset (B6). See "S0.2 report". |
 | **S0.3** Toolchain pinning | ✅ **Done; PO approved 2026-10-14** | See "S0.3 report" |
 | S0.4 DB foundation and RLS | ⚪ Not started | Docker available. **S0.1-C must be completed first.** |
@@ -55,6 +55,28 @@
 - `npm ls -g` shows no pnpm, and there is no `pnpm.cmd` in `%AppData%\npm`.
 - `wsl --status`: "The Windows Subsystem for Linux is not installed."
 - Conclusion: B2 and B3 are still open. No compose, YAML or service checks were run. Nothing was changed.
+
+### S0.1-C report (2026-10-15): done, approved by the PO
+
+Environment: Windows 11, Node v26.4.0, pnpm 12.11.2, Git 2.55.0, Docker 29.8.2, Compose v5.6.0. The verification run changed no project files. Fixes for F1 and F2 were then applied (PO instruction: "fix krdo") and re-verified.
+
+| Check | Result |
+|---|---|
+| `docker compose config --quiet` | ✅ Valid. Services: postgres, valkey-queue, valkey-cache, mailpit, elasticmq |
+| **AC 2:** `pnpm infra:down` then `pnpm infra:up` (`up -d --wait`) | ✅ Exit 0 in 6 s. postgres, valkey-queue, valkey-cache and mailpit `healthy`; elasticmq `Up` (no healthcheck). Volumes were kept (`infra:reset` not run). |
+| Ports | ✅ Every published port binds to `127.0.0.1` only |
+| postgres | ✅ `PostgreSQL 18.6`; connected as `dm_bootstrap` to `dhanuka` |
+| valkey-queue | ✅ `maxmemory-policy noeviction`, `appendonly yes` (ADR-004) |
+| valkey-cache | ✅ `maxmemory-policy allkeys-lru`, `maxmemory 268435456` (256 MB), `appendonly no` (ADR-004) |
+| mailpit | ✅ UI on :8025 returns 200; `/api/v1/info` reports v1.31.5 with 0 messages. Health comes from the image's own `HEALTHCHECK` (`/mailpit readyz`). |
+| elasticmq | ✅ SQS API on :9324 answers `ListQueues`. After the F2 fix it is also `healthy`. |
+| **AC 3:** README walkthrough | ✅ Prerequisite versions match. `.env` already existed with the same keys and values as `.env.example` (so it was not overwritten) and is gitignored. `npm run infra:up` / `infra:ps` exit 0. `pnpm install --frozen-lockfile` exit 0. `pnpm dev`: all six apps `/health` 200 **and `/ready` 200 with every postgres/valkey check `ok`**, web `/` 200; then stopped by root PID, ports 3000–3005 confirmed free. `pnpm build` exit 0 (14 s). `pnpm smoke:apps` exit 0, 28 PASS (it deliberately points apps at closed ports to test the 503 path). `pnpm test:e2e` 4/4 passed. Working tree clean afterwards. |
+
+**Findings:**
+- **F1: ElasticMQ UI port 9325 is dead.** `softwaremill/elasticmq-native:1.7.1` starts only the SQS server on 9324 (log: "Started SQS rest server, bind address 0.0.0.0:9324"); a request to :9325 gets "Empty reply from server". The compose mapping `${ELASTICMQ_UI_PORT:-9325}:9325` and `ELASTICMQ_UI_PORT` in `.env.example` therefore do nothing. **Fixed 2026-10-15:** the mapping and `ELASTICMQ_UI_PORT` were removed from `docker-compose.yml` and `.env.example` (and from the local `.env`, which matches `.env.example` again); a comment notes that the native image has no UI. `docker port` now shows only `9324/tcp -> 127.0.0.1:9324`.
+- **F2: ElasticMQ has no healthcheck,** so `up --wait` only waits for it to be running. The image defines none, and Mailpit's comes from its image rather than our compose file. **Fixed 2026-10-15:** compose now defines `wget -q -T 2 -O /dev/null http://127.0.0.1:9324/?Action=ListQueues` (busybox `wget` is the only HTTP client in the Alpine-based image; `curl` is absent). Tested inside the container: exit 0 against 9324, exit 1 against a closed port. After `infra:down` then `infra:up`, **all five services are `healthy`** (exit 0, 7 s).
+- **Not tested:** `infra:reset` (deletes volumes) was deliberately not run.
+- **Info:** Mailpit v1.31.6 is available; we stay on the pinned v1.31.5 (14-day release-age policy).
 
 **Docker observation (2026-10-15), not a formal S0.1-C run:** Docker 29.8.2 and Compose v5.6.0 are installed. The PO started the stack. `docker ps` showed postgres, valkey-queue, valkey-cache and mailpit `Up (healthy)`, and elasticmq `Up` (it has no healthcheck). With the stack up, all six apps returned `/health` 200 and `/ready` 200, and every postgres/valkey check was `ok`. **Still to do for S0.1-C:** `docker compose config`, a clean `pnpm infra:up` run by Claude, and the README walkthrough including the Docker steps.
 
@@ -257,7 +279,7 @@ Actions are SHA-pinned, permissions are read-only, each job has a time limit (�
 | # | Item | Needed by | Notes |
 |---|---|---|---|
 | T1 | Choose a local S3 emulator (`minio/minio` is no longer on Docker Hub, checked 2026-10-14). Removed from S0.1 (approved); now a prerequisite of S5.1. | Sprint 3, before S5.1 | Candidates: RustFS 1.0.1, SeaweedFS, Adobe S3Mock. Check licence and S3 API coverage. |
-| S0.1-C | **Carry-over:** `docker compose config`, `pnpm infra:up` (`up -d --wait`), health checks pass for postgres and both Valkey instances, mailpit and elasticmq running, README walkthrough including the Docker steps | When B2 is resolved; **before S0.4** | Includes Mailpit and ElasticMQ health behaviour (no healthchecks defined for them yet) |
+| S0.1-C | **Carry-over:** `docker compose config`, `pnpm infra:up` (`up -d --wait`), health checks pass for postgres and both Valkey instances, mailpit and elasticmq running, README walkthrough including the Docker steps | When B2 is resolved; **before S0.4** | **Done; PO approved 2026-10-15** (see "S0.1-C report"). Mailpit is healthy via its image healthcheck; ElasticMQ now has a compose healthcheck (F2 fixed). |
 | T4 | Align local Postgres and Valkey minors with what RDS and ElastiCache offer in ap-south-1 | S2.6 | Local pins: postgres 18.6, valkey 8.1.10 |
 
 ## Decisions awaiting approval
