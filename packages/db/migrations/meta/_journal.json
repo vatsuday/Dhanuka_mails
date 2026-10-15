@@ -15,6 +15,13 @@
       "when": 1792065508055,
       "tag": "0001_rls_and_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792066169190,
+      "tag": "0002_demo_broken_table",
+      "breakpoints": true
     }
   ]
 }
