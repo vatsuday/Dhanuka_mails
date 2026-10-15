@@ -33,6 +33,8 @@ pnpm db:migrate           # tables and row-level security, as app_migrator
 
 Apps connect as `app_user`, which owns nothing and cannot bypass row-level security (ADR-002). Run both commands again after `infra:reset`.
 
+**Try it (Sprint 1):** with the stack up and migrated, run `pnpm dev`, open http://127.0.0.1:3000/signup, sign up, open the confirmation email in Mailpit at http://127.0.0.1:8025, follow the link, log in and create an organisation. No email ever leaves your machine (`SENDING_MODE=sink`). The same flow runs as a browser test with `E2E_STACK=1 pnpm --filter @dm/web test:e2e` (needs the api running and the web app built).
+
 The `infra:*` scripts only need Docker. Once pnpm is installed, `pnpm infra:up` works too.
 
 **Apps** (ports and checks in [`apps/README.md`](apps/README.md)):

@@ -1,16 +1,16 @@
 # Progress Checklist
 
 **Current phase:** Phase 2 — MVP build
-**Current sprint:** Sprint 0 (Foundation)
-**Current task:** **Sprint 0 implementation complete (2026-10-15).** S0.1-C, S0.4, S0.5 and S0.7 were done on 2026-10-15; GitHub CI passed for each push (`c683d71`, `c3328c1`, `d41e7c1`, `e115b8b`; about 70 s per run, confirmed via the GitHub API). **Open PO actions:** (1) apply the Actions settings and `CI OK` ruleset (B6), because until then CI **does not block merges**; (2) open a PR from `demo/s0.5-broken-table`, confirm CI fails, close it unmerged and delete the branch (S0.5 AC 4); (3) confirm whether the repository should be public. **Next:** Sprint 0 review, then Sprint 1.
-**Last updated:** 2026-10-15 (Sprint 0 complete)
+**Current sprint:** Sprint 1 (Identity, organisations, system email): **done 2026-10-15**; next Sprint 2
+**Current task:** **Sprint 1 complete (2026-10-15).** Sprint 0 and Sprint 1 are implemented and verified. **Sprint 2 needs PO inputs before its AWS stories:** an AWS account (staging), a domain to verify in SES, and approval of the D5 cost estimate (S2.6, S2.7). S2.1 MFA, S2.2 invitations, S2.3 API keys and S2.4 domain records can be built locally first. **Open PO actions:** the `CI OK` ruleset (B6), the S0.5 demo PR, repository visibility. CI **does not block merges** until the ruleset is applied.
+**Last updated:** 2026-10-15 (Sprint 1 complete)
 
 ## Phases
 
 | Phase | Scope | Status |
 |---|---|---|
 | Phase 1 | Requirements, architecture, DB design, tech stack, backlog, ADRs, policies | ✅ **Approved 2026-10-14** (D1–D4, with safeguards) |
-| Phase 2 | MVP build, Sprints 0–9 (`05-backlog.md`) | 🟡 In progress: Sprint 0 |
+| Phase 2 | MVP build, Sprints 0–9 (`05-backlog.md`) | 🟡 In progress: Sprints 0 and 1 done; Sprint 2 next |
 | Phase 3 | Controlled beta (`live` sending after the readiness gate) | ⚪ Not started |
 | Phase 4 | Release 2: SMS, WhatsApp, automation, forms | ⚪ Not started |
 | Phase 5 | Release 3: AI features, integrations, SSO, white-label | ⚪ Not started |
@@ -24,6 +24,37 @@
 - [x] Safeguard 2 applied. Thresholds are configurable, versioned guardrails with minimum volumes, a Wilson lower-bound gate, absolute backstops, provider signals, conservative handling of insufficient data, and an immediate pause for serious incidents (`06` §3–§4, ADR-015, story S14.1).
 - [x] Consistency check: status headers updated, no stale suppression wording, sprint totals match the plan (305 pts), every MVP story has AC, ADR index complete (001–015)
 - [x] ADRs marked Accepted. ADR-013 cost option: Option B preferred (D5), subject to a verified estimate before provisioning. Spike-dependent items are flagged in the ADR index.
+
+## Sprint 1 report (2026-10-15)
+
+PO instruction: "complete this project and provide me". Sprint 1 was built end to end; Sprint 2 is next.
+
+| Story | Status | Evidence |
+|---|---|---|
+| **S1.1** Sign-up and email verification | ✅ | Argon2id (`$argon2id$`, 64 MiB, t=3); min 10 / max 256 chars; bundled common-password list plus optional HIBP k-anonymity (`PASSWORD_BREACH_CHECK=local+hibp`, fails open). Terms **and** AUP versions stored (new columns `aup_accepted_at`, `aup_version`). Identical `202 {"status":"accepted"}` for new and existing emails; the existing owner gets "You already have an account". Verification token 32 bytes, SHA-256 stored, single use, 24 h, and a resend invalidates the earlier link. Integration test reads the email from Mailpit and verifies. Unverified users get `403 email_not_verified` on `POST /orgs`. |
+| **S1.2** Login, logout, sessions | ✅ | `__Host-dm_session`, HttpOnly, Secure, SameSite=Lax, Path=/; sessions in valkey-cache under SHA-256 keys; 12 h idle (sliding) and 14 d absolute, tested with an injected clock; ID rotates on login and on switching organisation; logout deletes the server session; state-changing requests without our Origin (or Referer) get `403 bad_origin`, including login. |
+| **S1.3** Password reset | ✅ | Same `202` for unknown accounts (and no email sent); token 1 h, single use; a successful reset revokes every session of the user; email read from Mailpit in the test. |
+| **S1.4** Rate limiting and lockout | ✅ | Login 5/min per account + IP with progressive delay (0, 0, 250, 500, 1000 ms), then `429` with `Retry-After`; reset and verification resend 3/h per email; sign-up 10/h per IP. Fixed windows in valkey-cache via one Lua script, hashed keys. |
+| **S1.5** ChannelProvider, sink, mode guard, system mail | ✅ | `@dm/channels`: `ChannelProvider`, `SinkProvider` (Mailpit `POST /api/v1/send`, no SMTP library), `assertSendable`/`guardedProvider` with a full mode × provider × recipient-class test matrix; templates for verify, account-exists, reset and invitation, HTML-escaped. SES is not called; non-sink modes refuse to start until S8.1. |
+| **S1.6** Create organisation | ✅ | One `withTenant` transaction: tenant (`pending_review`, INR, Asia/Kolkata, en-IN, ap-south-1), owner membership, `tenant_sending_policies` (tier and mode `sandbox`, docs/06 §2 limits) and the `org.created` audit row. Unique slug with a random-suffix retry (other tenants' slugs are invisible under RLS). |
+| **S1.7** Membership lookup function | ✅ | `app.list_user_memberships`: SECURITY DEFINER, owned by `rls_lookup` (column-level SELECT only), `search_path` pinned, EXECUTE for `app_user` only, documented columns only, and bound to `app.user_id` (`withUser`). Tests: other users' memberships never returned, wrong or unbound user returns nothing, PUBLIC cannot execute. |
+| **S1.8** RBAC enforcement | ✅ | Permission matrix in `@dm/core` checked **against the docs/02 §5 table text**. Every route declares `config.permission`; a route without one cannot be registered. Every role is tested against every tenant route; mutation check (removing the `can()` check) is caught. Membership is re-checked on each request, so a removed member loses access immediately. |
+| **S1.9** Audit log writer | ✅ | `audit_logs` partitioned monthly (through 2027-12 plus default). `app_user`/`admin_user`: INSERT and SELECT only, so UPDATE, DELETE and TRUNCATE fail; partitions are unreachable directly. Recorded with IP and user agent: sign-up, verification, resend, login success, failure and rate-limit, logout, reset request and reset, organisation creation. MFA events arrive with S2.1. |
+
+**Exit demo** ("Signup → verify (email visible in Mailpit) → create org"): ✅ `apps/web/e2e/signup-flow.spec.ts` in Chrome against the real stack (local Postgres, Valkey, Mailpit, api, built web app): sign-up form → link from Mailpit → confirmed → log in → create organisation → dashboard shows owner and "pending review" → cookie attributes checked → log out. It runs with `E2E_STACK=1`; the CI e2e job still runs only the web smoke tests (no services there yet).
+
+**Found and fixed along the way:**
+- **Security bug caught by the S0.5 catalog test:** the first version of the migration changed the function owner before revoking PUBLIC EXECUTE; Postgres silently ignored the non-owner REVOKE. Order fixed, rule added to docs/04 §4.
+- The guard's blocked sends threw synchronously instead of rejecting; fixed (`async`).
+- Tokens travel in the URL **fragment** (`#token=`), which never reaches servers or Referer headers; the web app also sends `Referrer-Policy: no-referrer`.
+
+**Tests:** db 78, api 25, core 12 integration + 38 unit, channels 2 integration + 21 unit, shared 4 + 56, worker 10; web e2e 4 (+1 full-stack). Full local CI sequence exit 0.
+
+**Not done or deferred (by design):**
+- Argon2 timing is about 70 ms on this laptop; docs/02 §5 targets about 250 ms on production hardware. Re-measure on staging (S2.6). Stored hashes carry their parameters.
+- Client IP behind the `/api` rewrite could not be distinguished locally (browser and proxy are both loopback). Verify `X-Forwarded-For` handling on staging, and set `TRUST_PROXY` to the ALB subnets.
+- `audit_logs` partitions are pre-created to 2027-12; the maintenance job arrives with retention (S10.6).
+- Member management UI and invitations arrive with S2.2.
 
 ## Sprint 0 status
 

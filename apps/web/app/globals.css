@@ -1,0 +1,46 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #111827;
+  --muted: #4b5563;
+  --border: #d1d5db;
+  --accent: #1d4ed8;
+  --accent-text: #ffffff;
+  --danger: #b91c1c;
+  --success: #15803d;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f17;
+    --surface: #111827;
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --border: #374151;
+    --accent: #3b82f6;
+    --danger: #f87171;
+    --success: #4ade80;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+main { max-width: 440px; margin: 48px auto; padding: 0 16px; }
+main.wide { max-width: 760px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+h1 { font-size: 1.5rem; margin: 0 0 16px; }
+h2 { font-size: 1.1rem; margin: 0 0 12px; }
+label { display: block; font-weight: 600; margin: 12px 0 4px; }
+input[type='text'], input[type='email'], input[type='password'] { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--text); }
+.check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+button { margin-top: 16px; padding: 10px 16px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+button:disabled { opacity: 0.6; cursor: wait; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.error { color: var(--danger); }
+.success { color: var(--success); }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain li { padding: 10px 0; border-top: 1px solid var(--border); }
+.badge { font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--muted); }

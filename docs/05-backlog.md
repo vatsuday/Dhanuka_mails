@@ -67,6 +67,8 @@ Total ≈ 305 points over 20 weeks. If Sprint 0 starts in the week of 2026-10-19
 
 **Objective:** users can sign up, verify their email, log in and create an organisation. All email goes to the Mailpit sink.
 
+**Status 2026-10-15: all 9 stories implemented and verified (PO instruction: "complete this project"). Exit demo passed in a real browser. See PROGRESS.md "Sprint 1 report".**
+
 | ID | Story | Pts | AC |
 |---|---|---|---|
 | S1.1 | Signup and email verification | 5 | (1) Passwords hashed with Argon2id; minimum 10 characters; checked against a breached-password list (k-anonymity API or a local list). (2) Terms and AUP acceptance stored with their version. (3) The response is identical whether or not the email already exists; an existing user receives a "you already have an account" email instead. (4) The verification token is 32 bytes, stored hashed, single use and valid for 24 h. (5) An integration test reads the email from Mailpit and completes verification. (6) Unverified users can't create an organisation. |

@@ -2,7 +2,7 @@
 
 **Status:** v1.0 — **approved** (Phase 1 approval: D1–D4, 2026-10-14). Changes from now on go through change control: update the doc, the ADR if relevant, and PROGRESS.md.
 **Engine:** PostgreSQL 18 (fallback 17)
-**Last updated:** 2026-10-15 (S0.4: tenant predicate uses `NULLIF`; database-level grants added to §2)
+**Last updated:** 2026-10-15 (S0.4: tenant predicate uses `NULLIF`; database-level grants added to §2. Sprint 1: ACL-ordering rule in §4, `list_user_memberships` user binding, `audit_logs` and `users` AUP columns in §5.1)
 
 ## 1. Conventions
 
@@ -77,11 +77,13 @@ All of these functions:
 
 A CI catalog test enforces those three rules for every `SECURITY DEFINER` function.
 
+**Migration order rule (found in Sprint 1):** `REVOKE ... FROM PUBLIC` and `GRANT EXECUTE` must run **before** `ALTER FUNCTION ... OWNER TO rls_lookup`. Only the owner can change the ACL, and a REVOKE by a non-owner is silently ignored (a warning, not an error), so the reverse order leaves PUBLIC able to execute the function. The catalog test caught exactly this.
+
 | Function | Owner | Executable by | Returns | Purpose |
 |---|---|---|---|---|
 | `app.auth_api_key(p_prefix text, p_secret_hash bytea)` | rls_lookup | app_user | `tenant_id, key_id, scopes` — one row only if the hash matches (constant-time compare) **and** the key is not revoked or expired and the tenant is not closed | API-key authentication |
 | `app.lookup_invitation(p_token_hash bytea)` | rls_lookup | app_user | `invitation_id, tenant_id, tenant_name, email, role, expires_at` — only for pending, unexpired invitations | Accept an invitation |
-| `app.list_user_memberships(p_user_id uuid)` | rls_lookup | app_user | `tenant_id, tenant_name, role, tenant_status` | Organisation switcher after login |
+| `app.list_user_memberships(p_user_id uuid)` | rls_lookup | app_user | `tenant_id, tenant_name, role, tenant_status`, ordered by name. **Answers only when `p_user_id` equals the transaction's `app.user_id`** (set by `withUser`), so an API bug passing another user's ID returns nothing. **Implemented in S1.7.** | Organisation switcher after login |
 | `app.resolve_provider_message(p_provider text, p_provider_message_id text)` | rls_lookup | app_user | `tenant_id, message_id, message_created_at, campaign_id, contact_id` | Routing SES events |
 | `app.platform_suppressed(p_channel text, p_contact_ids uuid[])` | rls_lookup | app_user | `contact_id, suppressed boolean`. It **only answers for contacts belonging to the current tenant** (`app.tenant_id`); other IDs are silently dropped. It computes the HMAC internally and returns **no reason, date or source**. | Send-time and UI checks (no probing of arbitrary addresses) |
 | `app.record_platform_suppression(p_channel, p_address_hmac, p_domain, p_reason, p_rule_id, p_classifier_version, p_evidence_ref)` | rls_lookup | app_user | void. `p_reason` must be `hard_bounce_permanent` or `invalid_domain` / `invalid_syntax` (CHECK). The application classifier (`06` §7.2) decides whether evidence qualifies; the function rejects missing `rule_id` or `classifier_version`. | Ingestion and import validation |
@@ -102,7 +104,7 @@ A CI catalog test enforces those three rules for every `SECURITY DEFINER` functi
 
 ### 5.1 Identity, tenancy, operators
 
-**`users`** (global; `app_user` may `SELECT` and `UPDATE` only through the identity module): `id`, `email`, `email_normalized` UNIQUE, `password_hash`, `name`, `email_verified_at`, `mfa_enabled`, `terms_accepted_at`, `terms_version`, `last_login_at`, `created_at`, `updated_at`.
+**`users`** (global; `app_user` may `SELECT`, `INSERT` (sign-up) and `UPDATE` only through the identity module; never `DELETE`): `id`, `email`, `email_normalized` UNIQUE, `password_hash`, `name`, `email_verified_at`, `mfa_enabled`, `terms_accepted_at`, `terms_version`, `aup_accepted_at`, `aup_version` (added in S1.1), `last_login_at`, `created_at`, `updated_at`.
 
 **`user_tokens`**: `id`, `user_id`, `purpose` (`verify_email`, `reset_password`, `change_email`), `token_hash bytea` UNIQUE, `expires_at`, `used_at`, `created_at`.
 
@@ -129,7 +131,7 @@ A CI catalog test enforces those three rules for every `SECURITY DEFINER` functi
 
 **`api_keys`** 🔒: `id`, `tenant_id`, `name`, `prefix` UNIQUE, `secret_hash bytea`, `scopes text[]`, `environment` (`live, test`), `created_by`, `last_used_at`, `revoked_at`, `expires_at`.
 
-**`audit_logs`** 🔒 (`app_user` and `admin_user` get INSERT and SELECT only; **range-partitioned monthly**): `id`, `tenant_id` null (null for platform-level operator actions; those rows are not visible to tenants), `actor_type` (`user, api_key, system, operator`), `actor_id`, `action`, `target_type`, `target_id`, `metadata jsonb`, `ip inet`, `user_agent`, `created_at`. Retention: at least 1 year, plus 180 days of ICT logs kept in India (CERT-In).
+**`audit_logs`** 🔒 (`app_user` and `admin_user` get INSERT and SELECT only; **range-partitioned monthly**; implemented in S1.9 with partitions through 2027-12 plus a default partition, and two policies: tenants **read** only their rows; the runtime role may **append** rows for its tenant or with no tenant, e.g. login events, which no tenant can ever read): `id`, `tenant_id` null (null for platform-level operator actions; those rows are not visible to tenants), `actor_type` (`user, api_key, system, operator`), `actor_id`, `action`, `target_type`, `target_id`, `metadata jsonb`, `ip inet`, `user_agent`, `created_at`. Retention: at least 1 year, plus 180 days of ICT logs kept in India (CERT-In).
 
 **`operators`** (global; only `admin_user` has grants): `id`, `email`, `password_hash`, `mfa_secret_ciphertext`, `role` (`support, reviewer, admin`), `disabled_at`, `last_login_at`.
 
