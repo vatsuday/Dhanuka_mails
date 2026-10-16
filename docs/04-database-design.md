@@ -127,7 +127,7 @@ A CI catalog test enforces those three rules for every `SECURITY DEFINER` functi
 
 **`memberships`** 🔒: `id`, `tenant_id`, `user_id`, `role` (`owner, admin, marketer, developer, viewer`), `created_at`; UNIQUE `(tenant_id, user_id)`. A deferred constraint trigger requires every tenant to keep at least one owner.
 
-**`invitations`** 🔒: `id`, `tenant_id`, `email_normalized`, `role`, `token_hash bytea` UNIQUE, `invited_by`, `expires_at`, `accepted_at`, `revoked_at`.
+**`invitations`** 🔒: `id`, `tenant_id`, `email_normalized`, `role` (admin, marketer, developer or viewer; never owner), `token_hash bytea` UNIQUE (32 bytes), `invited_by`, `expires_at`, `accepted_at`, `accepted_by`, `revoked_at`, `created_at`. At most one pending invitation per (tenant, email): partial unique index. No DELETE grant: revoked and accepted rows stay as history.
 
 **`api_keys`** 🔒: `id`, `tenant_id`, `name`, `prefix` UNIQUE, `secret_hash bytea`, `scopes text[]`, `environment` (`live, test`), `created_by`, `last_used_at`, `revoked_at`, `expires_at`.
 

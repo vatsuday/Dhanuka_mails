@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import { api, messageFor } from '../../lib/api';
+import { MembersCard } from './members';
 import { RequireMfaCard, SecurityCard } from './security';
 
 interface Me {
@@ -117,6 +118,8 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      {current !== undefined && <MembersCard key={me.currentTenantId} role={current.role} />}
 
       {current?.role === 'owner' && <RequireMfaCard requireMfa={current.organisation.requireMfa} onChange={load} />}
 

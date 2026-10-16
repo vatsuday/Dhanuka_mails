@@ -99,7 +99,7 @@ describe('roles against tenant routes (S1.8 AC 3)', () => {
     }
     const owner = members.get('owner');
     tenantId = (await owner?.post('/orgs', { name: 'RBAC Org' }))?.json<{ tenantId: string }>().tenantId ?? '';
-    // Membership management arrives with invitations (S2.2); add the other roles directly.
+    // Add the other roles directly (invitations, S2.2, are tested in invitations.test.ts).
     for (const role of ROLES.filter((r) => r !== 'owner')) {
       await stack.pg.superuser.query(
         `insert into app.memberships (tenant_id, user_id, role) select $1, id, $2 from app.users where email_normalized = $3`,

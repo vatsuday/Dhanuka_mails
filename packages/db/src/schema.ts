@@ -192,3 +192,35 @@ export const mfaFactors = app.table(
   },
   (t) => [check('mfa_factors_type_check', sql`${t.type} = 'totp'`)],
 );
+
+/** Roles an invitation can grant. Ownership moves only by transfer (org:transfer), never by invitation. */
+export const INVITABLE_ROLES = ['admin', 'marketer', 'developer', 'viewer'] as const;
+
+/**
+ * Tenant table 🔒 (docs/04 §5.1, S2.2). The token is 32 random bytes, stored only as a SHA-256 hash,
+ * valid 7 days and single use. Before a user belongs to the tenant, it is resolved only through
+ * `app.lookup_invitation(token_hash)`. At most one pending invitation per email and tenant.
+ */
+export const invitations = app.table(
+  'invitations',
+  {
+    id: id(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    emailNormalized: text('email_normalized').notNull(),
+    role: text('role', { enum: INVITABLE_ROLES }).notNull(),
+    tokenHash: bytea('token_hash').notNull().unique(),
+    invitedBy: uuid('invited_by').notNull().references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    acceptedBy: uuid('accepted_by').references(() => users.id),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check('invitations_role_check', sql`${t.role} IN (${oneOf(INVITABLE_ROLES)})`),
+    check('invitations_token_hash_length', sql`octet_length(${t.tokenHash}) = 32`),
+    uniqueIndex('invitations_tenant_email_pending_key')
+      .on(t.tenantId, t.emailNormalized)
+      .where(sql`${t.acceptedAt} IS NULL AND ${t.revokedAt} IS NULL`),
+  ],
+);

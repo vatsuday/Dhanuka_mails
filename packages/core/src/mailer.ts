@@ -36,6 +36,10 @@ export class SystemMailer {
     return this.#send(to, 'password-reset', systemEmails.passwordReset({ url: this.link('/reset-password', token) }));
   }
 
+  invitation(to: string, token: string, details: { organisation: string; inviter: string; role: string }): Promise<SendResult> {
+    return this.#send(to, 'invitation', systemEmails.invitation({ ...details, url: this.link('/invite', token) }));
+  }
+
   #send(to: string, template: string, email: systemEmails.RenderedEmail): Promise<SendResult> {
     return this.#options.provider.send({
       from: this.#options.from,

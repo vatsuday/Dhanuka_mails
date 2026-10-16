@@ -31,7 +31,7 @@ main.wide { max-width: 760px; }
 h1 { font-size: 1.5rem; margin: 0 0 16px; }
 h2 { font-size: 1.1rem; margin: 0 0 12px; }
 label { display: block; font-weight: 600; margin: 12px 0 4px; }
-input[type='text'], input[type='email'], input[type='password'] { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--text); }
+input[type='text'], input[type='email'], input[type='password'], select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface); color: var(--text); }
 .check { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
 button { margin-top: 16px; padding: 10px 16px; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
 button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--border); }

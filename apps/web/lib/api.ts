@@ -18,6 +18,18 @@ export async function api<T = Record<string, unknown>>(path: string, body?: unkn
   return { status: response.status, ok: response.ok, data };
 }
 
+/** sessionStorage key holding an invitation token while the visitor logs in or signs up (S2.2). */
+export const PENDING_INVITE_KEY = 'dm.pendingInvite';
+
+/** Where to go after logging in: back to a pending invitation, else the dashboard. */
+export function afterLoginPath(): string {
+  try {
+    return sessionStorage.getItem(PENDING_INVITE_KEY) === null ? '/dashboard' : '/invite';
+  } catch {
+    return '/dashboard';
+  }
+}
+
 /** The token from a link like /verify-email#token=…, which never reaches any server. */
 export function tokenFromHash(): string {
   return new URLSearchParams(window.location.hash.slice(1)).get('token') ?? '';
@@ -42,6 +54,11 @@ const MESSAGES: Record<string, string> = {
   enable_mfa_first: 'Turn on two-step verification for your own account first.',
   already_enabled: 'Two-step verification is already on.',
   no_pending_enrolment: 'Start the setup again.',
+  email_mismatch: 'This invitation was sent to a different email address. Log in with that address to accept it.',
+  already_member: 'This person is already a member.',
+  role_not_allowed: 'You cannot give someone a role higher than your own.',
+  forbidden: 'You do not have permission to do that.',
+  not_found: 'That item no longer exists.',
 };
 
 export function messageFor(error: string | undefined): string {

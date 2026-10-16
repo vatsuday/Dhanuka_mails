@@ -2,6 +2,7 @@
 import { guardedProvider, SinkProvider, type ChannelProvider, type SendingMode } from '@dm/channels';
 import {
   IdentityService,
+  InvitationService,
   MfaService,
   OrganisationService,
   RateLimiter,
@@ -17,6 +18,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
 import { enforceRouteDeclarations, registerAccessControl, registerOriginCheck } from './http/guards.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
+import { registerInvitationRoutes } from './routes/invitations.ts';
 import { registerOrgRoutes } from './routes/orgs.ts';
 
 export interface ApiOptions {
@@ -84,4 +86,5 @@ export function registerApi<L extends FastifyBaseLogger>(app: AppWithLogger<L>, 
   registerAccessControl(app, sessions, organisations);
   registerAuthRoutes(app, identity, mfa);
   registerOrgRoutes(app, { db: options.db, identity, organisations, sessions });
+  registerInvitationRoutes(app, { invitations: new InvitationService({ db: options.db, mailer, limiter }), sessions });
 }

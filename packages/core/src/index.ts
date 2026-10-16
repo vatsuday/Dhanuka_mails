@@ -10,3 +10,4 @@ export * from './tenancy/organisations.ts';
 export * from './tenancy/permissions.ts';
 export * from './crypto/envelope.ts';
 export * from './identity/mfa.ts';
+export * from './tenancy/invitations.ts';

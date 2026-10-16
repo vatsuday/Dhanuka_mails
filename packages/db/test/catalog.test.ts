@@ -17,7 +17,7 @@ afterAll(async () => {
 describe('catalog after all migrations', () => {
   it('finds the tenant tables', async () => {
     expect(await tenantTables(db.superuser)).toEqual([
-      'app.audit_logs', 'app.contacts', 'app.memberships', 'app.tenant_sending_policies', 'app.tenants',
+      'app.audit_logs', 'app.contacts', 'app.invitations', 'app.memberships', 'app.tenant_sending_policies', 'app.tenants',
     ]);
   });
 

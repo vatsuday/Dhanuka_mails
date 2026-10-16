@@ -1,9 +1,9 @@
 # Progress Checklist
 
 **Current phase:** Phase 2 — MVP build
-**Current sprint:** Sprint 2 (in progress; S2.1 done 2026-10-16)
-**Current task:** S2.1 MFA done; next S2.2 invitations. **Sprint 2 needs PO inputs before its AWS stories:** an AWS account (staging), a domain to verify in SES, and approval of the D5 cost estimate (S2.6, S2.7). S2.1 MFA, S2.2 invitations, S2.3 API keys and S2.4 domain records can be built locally first. **Open PO actions:** the `CI OK` ruleset (B6), the S0.5 demo PR, repository visibility. CI **does not block merges** until the ruleset is applied.
-**Last updated:** 2026-10-16 (S2.1 complete)
+**Current sprint:** Sprint 2 (in progress; S2.1 and S2.2 done 2026-10-16)
+**Current task:** S2.1 MFA and S2.2 invitations done; next S2.3 API keys. **Sprint 2 needs PO inputs before its AWS stories:** an AWS account (staging), a domain to verify in SES, and approval of the D5 cost estimate (S2.6, S2.7). S2.1 MFA, S2.2 invitations, S2.3 API keys and S2.4 domain records can be built locally first. **Open PO actions:** the `CI OK` ruleset (B6), the S0.5 demo PR, repository visibility. CI **does not block merges** until the ruleset is applied.
+**Last updated:** 2026-10-16 (S2.2 complete)
 
 ## Phases
 
@@ -30,6 +30,14 @@
 | Story | Status | Evidence |
 |---|---|---|
 | **S2.1** TOTP MFA | ✅ 2026-10-16 | (1) `POST /auth/mfa/enroll` returns the otpauth URI and an SVG QR code (`uqr`); MFA stays off until `/auth/mfa/confirm` gets a valid code. (2) Secret envelope-encrypted: fresh AES-256-GCM data key per secret, wrapped by a KEK; `mfa:<userId>` bound as AAD; `key_id` stored for rotation. Locally the KEK is `MFA_LOCAL_KEK` (or a public dev key); **staging/production refuse to start until the KMS adapter exists (S2.6/S15.4)**. (3) 10 recovery codes (≈50 bits each), SHA-256 only, removed atomically when used. (4) ±1 step; the used step is recorded with a conditional UPDATE, so the same or an earlier step is rejected, even concurrently. (5) Owner-only `security:manage` → `POST /orgs/current/security`; owner must have MFA first; members without MFA get `403 mfa_required` on every tenant route. (6) Login with MFA returns a challenge (valkey-cache, 5 min, 5 attempts) instead of a session; `POST /auth/login/mfa` completes it. Audited: enabled, disabled, challenged, failed, recovery code used, requirement changed. Web: two-step login screen and a dashboard security card (QR, recovery codes, turn off, owner switch). |
+
+| **S2.2** Invitations | ✅ 2026-10-16 | (1) `POST /orgs/current/invitations` needs `members:manage` (owner, admin); `canGrant` refuses owner and any role above the inviter's (unit-tested; the HTTP path cannot reach a lower inviter today). Re-inviting an address replaces the earlier link; inviting an existing member gives `409 already_member`; 20 invitations per tenant per hour. (2) Token: 32 bytes, SHA-256 stored (CHECK octet_length = 32), 7 days, single use; resolved through `app.lookup_invitation(token_hash)` (SECURITY DEFINER, owner `rls_lookup`, column-level grants, pending and unexpired only). `invitations` has forced RLS, is in the isolation registry and has no DELETE grant. (3) Accept needs a session, a verified email and an exact match with the invited address; the UPDATE re-checks pending, unexpired and token, so concurrent accept or revoke cannot both win; the session rotates into the organisation. (4) `POST /orgs/current/invitations/:id/revoke`. (5) Audited: `org.invitation_created` (with replaced IDs), `org.invitation_revoked`, `org.invitation_accepted`; no email addresses in audit metadata. (6) Sent through the guarded provider: Mailpit locally (asserted in tests). Web: members card (list, invite, pending, revoke) and an `/invite` page that keeps the token in sessionStorage across log-in. |
+
+**Browser check (both stories):** `apps/web/e2e/team-flow.spec.ts` in Chrome against the real local stack: owner signs up, turns on two-step verification from the QR card, logs out, a wrong code is refused, a recovery code logs in, invites a marketer; the invitee opens the email link signed out, signs up, confirms, logs in, is returned to `/invite`, accepts and lands in the organisation as marketer. Passed, together with the Sprint 1 signup flow and smoke tests. `E2E_WEB_PORT` lets it run when port 3000 is taken locally.
+
+**Noted UX gap:** a new session starts with no organisation selected, even for a user with exactly one; they must press Switch. Auto-selecting a single organisation is a small follow-up.
+
+**S2.2 tests:** db invitations.test.ts 7 (lookup conditions and columns, function ownership and grants, role and hash constraints, one pending per email, no DELETE) + isolation registry; api invitations.test.ts 11; core invitations.test.ts 3. Mutation checks: removing the email-match check and the role-rank check are each caught.
 
 **S2.1 bug found and fixed:** node-pg cannot serialise an array of Buffers (`bytea[]`). The raw bytes went into the array literal, so Postgres rejected confirmation with "invalid byte sequence 0x00". The hashes now travel as hex and are decoded in SQL.
 

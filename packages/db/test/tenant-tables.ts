@@ -1,6 +1,8 @@
 // Registry of tenant tables for the isolation suite (Definition of Done item 3: every new tenant
 // table is added here). isolation.test.ts fails if a table with tenant_id is missing from this list.
 
+import { randomBytes } from 'node:crypto';
+
 export interface IsolationFixtures {
   /** Creates a global user (as the superuser) and returns its ID. */
   newUser: () => Promise<string>;
@@ -42,5 +44,17 @@ export const TENANT_TABLES: readonly TenantTable[] = [
     name: 'app.contacts',
     tenantColumn: 'tenant_id',
     row: (tenantId, fx) => Promise.resolve({ tenant_id: tenantId, email_normalized: `${fx.unique()}@example.in` }),
+  },
+  {
+    name: 'app.invitations',
+    tenantColumn: 'tenant_id',
+    row: async (tenantId, fx) => ({
+      tenant_id: tenantId,
+      email_normalized: `${fx.unique()}@example.in`,
+      role: 'viewer',
+      token_hash: randomBytes(32),
+      invited_by: await fx.newUser(),
+      expires_at: new Date(Date.now() + 86_400_000),
+    }),
   },
 ];

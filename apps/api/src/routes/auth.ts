@@ -36,7 +36,7 @@ export async function parse<T>(schema: z.ZodType<T>, request: FastifyRequest, re
   return undefined;
 }
 
-function rateLimited(reply: FastifyReply, retryAfterMs = 60_000) {
+export function rateLimited(reply: FastifyReply, retryAfterMs = 60_000) {
   return reply.code(429).header('retry-after', String(Math.ceil(retryAfterMs / 1000))).send({ error: 'rate_limited' });
 }
 

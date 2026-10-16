@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type SubmitEvent } from 'react';
-import { api, messageFor } from '../../lib/api';
+import { afterLoginPath, api, messageFor } from '../../lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function LoginPage() {
     });
     setBusy(false);
     if (result.ok && result.data.mfaRequired === true) setChallengeId(result.data.challengeId);
-    else if (result.ok) router.push('/dashboard');
+    else if (result.ok) router.push(afterLoginPath());
     else setError(messageFor(result.data.error));
   }
 
@@ -34,7 +34,7 @@ export default function LoginPage() {
     const result = await api('/auth/login/mfa', { challengeId, code: new FormData(event.currentTarget).get('code') });
     setBusy(false);
     if (result.ok) {
-      router.push('/dashboard');
+      router.push(afterLoginPath());
       return;
     }
     // After 5 wrong codes or 5 minutes the challenge is gone: start again with the password.
