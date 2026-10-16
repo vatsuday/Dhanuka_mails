@@ -39,7 +39,7 @@ describe('invite and accept (AC 1, 2, 5, 6)', () => {
     const email = await waitForEmail(stack.mailpitUrl, 'marketer@invite.example.in', "You're invited");
     expect(email.text).toContain('Invite Org');
     expect(email.text).toContain('as marketer');
-    expect(email.text).toContain(`${'http://app.test'}/invite#token=`);
+    expect(email.text).toContain('http://app.test/invite#token=');
     const token = tokenFrom(email.text);
 
     const pending = (await owner.get('/orgs/current/invitations')).json<{ invitations: { email: string; role: string }[] }>();
