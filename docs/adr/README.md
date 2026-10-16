@@ -21,3 +21,4 @@ Phase 1 was approved on 2026-10-14 (D1–D4), so all ADRs are **Accepted**. Exce
 | [014](ADR-014-authentication.md) | Self-built authentication on vetted primitives | Accepted |
 | [015](ADR-015-deliverability-guardrails.md) | Deliverability thresholds as configurable guardrails | Accepted (D4, with safeguards) |
 | [016](ADR-016-internal-packages-as-typescript-source.md) | Internal packages ship TypeScript source (no build step) | Accepted (2026-10-14) |
+| [017](ADR-017-brevo-provider.md) | Brevo as an additional provider, with tenant-owned accounts | Accepted (2026-10-16); live use needs a real-key check |

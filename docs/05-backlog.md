@@ -182,6 +182,8 @@ Total ≈ 305 points over 20 weeks. If Sprint 0 starts in the week of 2026-10-19
 | S15.6 | Runbooks, alerts, CERT-In logging | 3 | (1) Runbooks 1–9 written. (2) Every alarm fired in a test. (3) 180-day log retention in ap-south-1 verified. |
 | S2.8 | Audit log viewer | 2 | Owner and Admin can filter and export the audit log; isolation tested. |
 | S2.9 | Ownership transfer and organisation deletion | 3 | (1) Transfer requires the new owner's acceptance. (2) The last owner can't leave. (3) Deletion has a 30-day grace period, then a purge job runs and the SES tenant is deleted. |
+| S2.10 | Brevo provider adapter (ADR-017) | 2 | ✅ 2026-10-16. (1) `BrevoProvider` sends single messages and batches of up to 1,000 (`messageVersions`), refusing batches with mixed senders or headers. (2) Errors classified retryable or not; the API key never appears in errors. (3) The sending-mode guard covers every recipient in a batch; SES simulator addresses are exempt only through SES. (4) Tested with a fake fetch; a real-key check is pending. |
+| S2.11 | Connect a Brevo account | 3 | (1) Owner or Admin enters a Brevo API key; it is validated with a read-only Brevo call, then stored envelope-encrypted (`brevo:<tenantId>`) and shown only as its last 4 characters. (2) Disconnect deletes it. (3) Audited. (4) The tenant can pick Brevo or the platform provider for campaigns; system mail always uses the platform provider. (5) The guard and sending mode apply unchanged. (6) Brevo bounce, complaint and unsubscribe webhooks are mapped in S10. |
 
 ## Release 2 backlog (not scheduled)
 

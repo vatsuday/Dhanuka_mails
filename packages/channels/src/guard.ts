@@ -13,7 +13,7 @@ export function effectiveMode(platform: SendingMode, tenant?: SendingMode): Send
   return STRICTNESS[tenant] < STRICTNESS[platform] ? tenant : platform;
 }
 
-/** SES mailbox simulator addresses are always safe: SES never delivers them anywhere. */
+/** SES mailbox simulator addresses are safe through SES only: SES never delivers them anywhere. */
 const SES_SIMULATOR_DOMAIN = 'simulator.amazonses.com';
 
 export type RecipientClass = 'ses-simulator' | 'allowlisted' | 'external';
@@ -45,7 +45,8 @@ export function classifyRecipient(email: string, allowlist: readonly string[] = 
 /**
  * Throws SendingBlockedError when the message may not be sent:
  * - sink: only the sink provider may be used; no message reaches a real provider.
- * - sandbox: a real provider may be used, but only for SES simulator and allowlisted addresses.
+ * - sandbox: a real provider may be used, but only for allowlisted addresses, and SES simulator
+ *   addresses through SES itself (any other provider would really deliver to them; ADR-017).
  * - live: everything allowed (production only; enforced at start-up by loadConfig).
  */
 export function assertSendable(mode: SendingMode, providerName: string, recipient: string, options: GuardOptions = {}): void {
@@ -56,8 +57,11 @@ export function assertSendable(mode: SendingMode, providerName: string, recipien
     }
     return;
   }
-  if (mode === 'sandbox' && providerName !== 'sink' && recipientClass === 'external') {
-    throw new SendingBlockedError(mode, recipientClass, 'recipient is neither an SES simulator nor allowlisted address');
+  if (mode === 'sandbox' && providerName !== 'sink') {
+    const simulated = recipientClass === 'ses-simulator' && providerName === 'ses';
+    if (recipientClass !== 'allowlisted' && !simulated) {
+      throw new SendingBlockedError(mode, recipientClass, 'recipient is neither an SES simulator (via SES) nor an allowlisted address');
+    }
   }
 }
 
@@ -67,12 +71,24 @@ export function guardedProvider(
   mode: () => SendingMode,
   options: GuardOptions = {},
 ): ChannelProvider {
-  return {
+  const guarded: ChannelProvider = {
     name: provider.name,
     // async, so a blocked send is a rejected promise like any other send failure.
     send: async (message: EmailMessage): Promise<SendResult> => {
       assertSendable(mode(), provider.name, message.to.email, options);
       return provider.send(message);
+    },
+  };
+  const { sendBatch } = provider;
+  if (sendBatch === undefined) return guarded;
+  return {
+    ...guarded,
+    ...(provider.maxBatchSize === undefined ? {} : { maxBatchSize: provider.maxBatchSize }),
+    // Every recipient is checked before the single provider call: one blocked recipient blocks the batch.
+    sendBatch: async (messages: readonly EmailMessage[]): Promise<SendResult[]> => {
+      const current = mode();
+      for (const message of messages) assertSendable(current, provider.name, message.to.email, options);
+      return sendBatch.call(provider, messages);
     },
   };
 }

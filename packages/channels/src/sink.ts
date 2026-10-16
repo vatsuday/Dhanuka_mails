@@ -32,9 +32,9 @@ export class SinkProvider implements ChannelProvider {
         signal: AbortSignal.timeout(5000),
       });
     } catch (error) {
-      throw new ProviderError('sink: Mailpit is unreachable', { cause: error });
+      throw new ProviderError('sink: Mailpit is unreachable', { cause: error, retryable: true });
     }
-    if (!response.ok) throw new ProviderError(`sink: Mailpit returned HTTP ${String(response.status)}`);
+    if (!response.ok) throw new ProviderError(`sink: Mailpit returned HTTP ${String(response.status)}`, { status: response.status, retryable: response.status >= 500 });
     const { ID } = (await response.json()) as { ID?: unknown };
     if (typeof ID !== 'string') throw new ProviderError('sink: Mailpit returned no message ID');
     return { provider: this.name, providerMessageId: ID };

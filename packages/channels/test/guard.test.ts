@@ -18,7 +18,7 @@ const RECIPIENTS: Record<RecipientClass, string> = {
 };
 
 /** Expected outcome for every mode × provider × recipient class (ADR-011). */
-const MATRIX: [SendingMode, 'sink' | 'ses', RecipientClass, 'allowed' | 'blocked'][] = [
+const MATRIX: [SendingMode, 'sink' | 'ses' | 'brevo', RecipientClass, 'allowed' | 'blocked'][] = [
   ['sink', 'sink', 'ses-simulator', 'allowed'],
   ['sink', 'sink', 'allowlisted', 'allowed'],
   ['sink', 'sink', 'external', 'allowed'], // delivered to Mailpit only
@@ -32,6 +32,13 @@ const MATRIX: [SendingMode, 'sink' | 'ses', RecipientClass, 'allowed' | 'blocked
   ['live', 'ses', 'ses-simulator', 'allowed'],
   ['live', 'ses', 'allowlisted', 'allowed'],
   ['live', 'ses', 'external', 'allowed'],
+  // ADR-017: Brevo really delivers, so SES simulator addresses are not safe through it.
+  ['sink', 'brevo', 'allowlisted', 'blocked'],
+  ['sink', 'brevo', 'external', 'blocked'],
+  ['sandbox', 'brevo', 'ses-simulator', 'blocked'],
+  ['sandbox', 'brevo', 'allowlisted', 'allowed'],
+  ['sandbox', 'brevo', 'external', 'blocked'],
+  ['live', 'brevo', 'external', 'allowed'],
 ];
 
 describe('assertSendable', () => {
