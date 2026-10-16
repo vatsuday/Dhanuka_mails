@@ -4,6 +4,7 @@ import { userTokens, users, type Database, type TOKEN_PURPOSES } from '@dm/db';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { recordAudit, type RequestContext } from '../audit.ts';
 import type { SystemMailer } from '../mailer.ts';
+import type { MfaService } from './mfa.ts';
 import { normalizeEmail } from './email.ts';
 import { checkPasswordPolicy, DEFAULT_ARGON2, hashPassword, verifyPassword, type Argon2Params, type BreachedPasswordChecker, type PasswordProblem } from './passwords.ts';
 import { LOGIN_LIMIT, loginFailureDelayMs, RESET_LIMIT, SIGNUP_LIMIT, VERIFY_RESEND_LIMIT, type RateLimiter } from './rate-limit.ts';
@@ -31,6 +32,8 @@ export interface IdentityDependencies {
   mailer: SystemMailer;
   breached: BreachedPasswordChecker;
   logger: Logger;
+  /** When set, users with MFA enabled get a challenge instead of a session at login (S2.1). */
+  mfa?: MfaService | undefined;
   argon2?: Argon2Params;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -52,8 +55,12 @@ export interface SignupInput {
 
 export type SignupError = 'invalid_email' | 'outdated_terms' | 'rate_limited' | `password_${PasswordProblem}`;
 
+export type LoginOutcome =
+  | { kind: 'session'; sessionId: string; userId: string }
+  | { kind: 'mfa_required'; challengeId: string };
+
 export class IdentityService {
-  readonly #d: Required<IdentityDependencies>;
+  readonly #d: Required<Omit<IdentityDependencies, 'mfa'>> & Pick<IdentityDependencies, 'mfa'>;
   /** Verified against when the account doesn't exist, so a failed login always costs one Argon2 verify. */
   #dummyHash: Promise<string> | undefined;
 
@@ -143,15 +150,18 @@ export class IdentityService {
     password: string,
     ctx: RequestContext,
     previousSessionId?: string,
-  ): Promise<Result<{ sessionId: string; userId: string }, 'invalid_credentials' | 'rate_limited'>> {
-    const { db, limiter, sessions } = this.#d;
+  ): Promise<Result<LoginOutcome, 'invalid_credentials' | 'rate_limited'>> {
+    const { db, limiter } = this.#d;
     const email = normalizeEmail(rawEmail) ?? rawEmail.trim().toLowerCase();
     const limit = await limiter.hit(LOGIN_LIMIT, email, ctx.ip ?? 'unknown');
     if (!limit.allowed) {
       await recordAudit(db, { tenantId: null, actorType: 'user', actorId: null, action: 'auth.login_rate_limited' }, ctx);
       return { ok: false, error: 'rate_limited', retryAfterMs: limit.retryAfterMs };
     }
-    const [user] = await db.select({ id: users.id, passwordHash: users.passwordHash }).from(users).where(eq(users.emailNormalized, email));
+    const [user] = await db
+      .select({ id: users.id, passwordHash: users.passwordHash, mfaEnabled: users.mfaEnabled })
+      .from(users)
+      .where(eq(users.emailNormalized, email));
     let valid = false;
     if (user === undefined) await verifyPassword(await this.#dummy(), password); // same cost as a real check
     else valid = await verifyPassword(user.passwordHash, password);
@@ -164,10 +174,37 @@ export class IdentityService {
       return { ok: false, error: 'invalid_credentials' };
     }
     await limiter.reset(LOGIN_LIMIT, email, ctx.ip ?? 'unknown');
-    const sessionId = await sessions.create({ userId: user.id }, previousSessionId);
-    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
-    await recordAudit(db, { tenantId: null, actorType: 'user', actorId: user.id, action: 'auth.login_succeeded' }, ctx);
-    return { ok: true, sessionId, userId: user.id };
+    if (user.mfaEnabled && this.#d.mfa !== undefined) {
+      const challengeId = await this.#d.mfa.createChallenge(user.id, previousSessionId);
+      await recordAudit(db, { tenantId: null, actorType: 'user', actorId: user.id, action: 'auth.login_mfa_challenged' }, ctx);
+      return { ok: true, kind: 'mfa_required', challengeId };
+    }
+    return { ok: true, ...(await this.#startSession(user.id, ctx, previousSessionId, false)) };
+  }
+
+  /** Second step of an MFA login (S2.1 AC 6). The challenge allows 5 attempts in 5 minutes. */
+  async completeMfaLogin(
+    challengeId: string,
+    code: string,
+    ctx: RequestContext,
+  ): Promise<Result<{ sessionId: string; userId: string }, 'invalid_challenge' | 'invalid_code'>> {
+    if (this.#d.mfa === undefined) return { ok: false, error: 'invalid_challenge' };
+    const answered = await this.#d.mfa.answerChallenge(challengeId, code, ctx);
+    if (!answered.ok) return answered;
+    const { sessionId, userId } = await this.#startSession(answered.userId, ctx, answered.previousSessionId, true);
+    return { ok: true, sessionId, userId };
+  }
+
+  async #startSession(
+    userId: string,
+    ctx: RequestContext,
+    previousSessionId: string | undefined,
+    mfa: boolean,
+  ): Promise<{ kind: 'session'; sessionId: string; userId: string }> {
+    const sessionId = await this.#d.sessions.create({ userId }, previousSessionId);
+    await this.#d.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
+    await recordAudit(this.#d.db, { tenantId: null, actorType: 'user', actorId: userId, action: 'auth.login_succeeded', metadata: { mfa } }, ctx);
+    return { kind: 'session', sessionId, userId };
   }
 
   async logout(sessionId: string, userId: string, ctx: RequestContext): Promise<void> {
@@ -208,12 +245,16 @@ export class IdentityService {
     return { ok: true };
   }
 
-  async getUser(userId: string): Promise<{ id: string; email: string; name: string | null; emailVerified: boolean } | undefined> {
+  async getUser(
+    userId: string,
+  ): Promise<{ id: string; email: string; name: string | null; emailVerified: boolean; mfaEnabled: boolean } | undefined> {
     const [user] = await this.#d.db
-      .select({ id: users.id, email: users.emailNormalized, name: users.name, verifiedAt: users.emailVerifiedAt })
+      .select({ id: users.id, email: users.emailNormalized, name: users.name, verifiedAt: users.emailVerifiedAt, mfaEnabled: users.mfaEnabled })
       .from(users)
       .where(eq(users.id, userId));
-    return user === undefined ? undefined : { id: user.id, email: user.email, name: user.name, emailVerified: user.verifiedAt !== null };
+    return user === undefined
+      ? undefined
+      : { id: user.id, email: user.email, name: user.name, emailVerified: user.verifiedAt !== null, mfaEnabled: user.mfaEnabled };
   }
 
   /** Issues a token, invalidating any earlier unused token of the same purpose (only the latest link works). */

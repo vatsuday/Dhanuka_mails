@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   'billing:manage': ['owner'],
   'org:delete': ['owner'],
   'org:transfer': ['owner'],
+  'security:manage': ['owner'], // e.g. require MFA for every member (S2.1 AC 5)
   'members:manage': ['owner', 'admin'],
   'domains:manage': ['owner', 'admin'],
   'developer:manage': ['owner', 'admin', 'developer'], // API keys and webhooks

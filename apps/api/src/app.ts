@@ -2,12 +2,14 @@
 import { guardedProvider, SinkProvider, type ChannelProvider, type SendingMode } from '@dm/channels';
 import {
   IdentityService,
+  MfaService,
   OrganisationService,
   RateLimiter,
   SessionStore,
   SystemMailer,
   type Argon2Params,
   type BreachedPasswordChecker,
+  type KeyEncryptionKey,
 } from '@dm/core';
 import type { Database } from '@dm/db';
 import type { AppWithLogger } from '@dm/shared';
@@ -29,6 +31,10 @@ export interface ApiOptions {
   /** The web origin: links in emails and the only origin allowed to change state. */
   appUrl: string;
   breached: BreachedPasswordChecker;
+  /** Key-encryption keys for MFA secrets; the first encrypts (S2.1). */
+  mfaKeks: readonly [KeyEncryptionKey, ...KeyEncryptionKey[]];
+  /** Tests pin the TOTP clock (Unix seconds). */
+  nowSeconds?: () => number;
   argon2?: Argon2Params;
   /** Tests inject a provider; otherwise it is chosen from the sending mode. */
   provider?: ChannelProvider;
@@ -54,11 +60,18 @@ export function registerApi<L extends FastifyBaseLogger>(app: AppWithLogger<L>, 
     from: options.mailFrom,
     appUrl: options.appUrl,
   });
+  const mfa = new MfaService({
+    db: options.db,
+    cache: options.cache,
+    keks: options.mfaKeks,
+    ...(options.nowSeconds === undefined ? {} : { nowSeconds: options.nowSeconds }),
+  });
   const identity = new IdentityService({
     db: options.db,
     sessions,
     limiter,
     mailer,
+    mfa,
     breached: options.breached,
     logger: app.log,
     ...(options.argon2 === undefined ? {} : { argon2: options.argon2 }),
@@ -69,6 +82,6 @@ export function registerApi<L extends FastifyBaseLogger>(app: AppWithLogger<L>, 
   enforceRouteDeclarations(app);
   registerOriginCheck(app, [new URL(options.appUrl).origin]);
   registerAccessControl(app, sessions, organisations);
-  registerAuthRoutes(app, identity);
+  registerAuthRoutes(app, identity, mfa);
   registerOrgRoutes(app, { db: options.db, identity, organisations, sessions });
 }

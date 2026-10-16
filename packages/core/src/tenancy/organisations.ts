@@ -84,19 +84,43 @@ export class OrganisationService {
     return result.rows.map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name, role: r.role, tenantStatus: r.tenant_status }));
   }
 
-  /** The user's role in a tenant, or undefined if they are not a member. Checked on every tenant request. */
+  /** The user's role in a tenant, or undefined if they are not a member. */
   async role(tenantId: string, userId: string): Promise<Role | undefined> {
-    const [row] = await withTenant(this.#db, tenantId, (tx) =>
-      tx.select({ role: memberships.role }).from(memberships).where(and(eq(memberships.tenantId, tenantId), eq(memberships.userId, userId))),
-    );
-    return row?.role;
+    return (await this.access(tenantId, userId))?.role;
   }
 
-  async get(tenantId: string): Promise<{ id: string; name: string; slug: string; status: string; currency: string; timezone: string; locale: string; dataRegion: string } | undefined> {
+  /**
+   * Everything the access check needs, in one transaction, on every tenant request: the member's role,
+   * whether the organisation requires MFA, and whether the user has it (S2.1 AC 5).
+   */
+  async access(tenantId: string, userId: string): Promise<{ role: Role; requireMfa: boolean; userMfaEnabled: boolean } | undefined> {
+    const [row] = await withTenant(this.#db, tenantId, (tx) =>
+      tx.select({ role: memberships.role, requireMfa: tenants.requireMfa, userMfaEnabled: users.mfaEnabled })
+        .from(memberships)
+        .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(eq(memberships.tenantId, tenantId), eq(memberships.userId, userId))),
+    );
+    return row;
+  }
+
+  /** S2.1 AC 5: the owner requires MFA for every member. The owner needs MFA first, or they would lock themselves out. */
+  async setRequireMfa(tenantId: string, userId: string, required: boolean, ctx: RequestContext): Promise<Result<object, 'enable_mfa_first'>> {
+    const [user] = await this.#db.select({ mfaEnabled: users.mfaEnabled }).from(users).where(eq(users.id, userId));
+    if (required && user?.mfaEnabled !== true) return { ok: false, error: 'enable_mfa_first' };
+    await withTenant(this.#db, tenantId, async (tx) => {
+      await tx.update(tenants).set({ requireMfa: required, updatedAt: new Date() }).where(eq(tenants.id, tenantId));
+      await recordAudit(tx, { tenantId, actorType: 'user', actorId: userId, action: 'org.mfa_requirement_changed', metadata: { required } }, ctx);
+    });
+    return { ok: true };
+  }
+
+  async get(tenantId: string): Promise<{ id: string; name: string; slug: string; status: string; currency: string; timezone: string; locale: string; dataRegion: string; requireMfa: boolean } | undefined> {
     const [row] = await withTenant(this.#db, tenantId, (tx) =>
       tx.select({
         id: tenants.id, name: tenants.name, slug: tenants.slug, status: tenants.status,
         currency: tenants.currency, timezone: tenants.timezone, locale: tenants.locale, dataRegion: tenants.dataRegion,
+        requireMfa: tenants.requireMfa,
       }).from(tenants),
     );
     return row;

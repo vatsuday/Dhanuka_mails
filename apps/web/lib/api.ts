@@ -36,6 +36,12 @@ const MESSAGES: Record<string, string> = {
   invalid_name: 'Organisation names must be 2 to 120 characters.',
   invalid_request: 'Please check the form and try again.',
   bad_origin: 'This request was blocked. Reload the page and try again.',
+  invalid_code: 'That code is not valid. Check your authenticator app and try again.',
+  invalid_challenge: 'Your sign-in expired. Enter your email and password again.',
+  mfa_required: 'This organisation requires two-step verification. Turn it on below to continue.',
+  enable_mfa_first: 'Turn on two-step verification for your own account first.',
+  already_enabled: 'Two-step verification is already on.',
+  no_pending_enrolment: 'Start the setup again.',
 };
 
 export function messageFor(error: string | undefined): string {

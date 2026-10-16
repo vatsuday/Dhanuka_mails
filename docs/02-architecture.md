@@ -142,6 +142,7 @@ This suite blocks CI. It:
 | Permission | Owner | Admin | Marketer | Developer | Viewer |
 |---|---|---|---|---|---|
 | Billing, delete org, transfer ownership | ✅ | | | | |
+| Organisation security (require MFA) | ✅ | | | | |
 | Manage members and roles (up to own role) | ✅ | ✅ | | | |
 | Sending domains | ✅ | ✅ | | | |
 | API keys and webhooks | ✅ | ✅ | | ✅ | |

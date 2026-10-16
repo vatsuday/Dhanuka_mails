@@ -81,10 +81,12 @@ export function registerAccessControl<L extends FastifyBaseLogger>(
     // Tenant route: the tenant comes from the session, never the request, and membership is re-checked
     // on every request so a removed member loses access immediately.
     if (session.tenantId === undefined) return reply.code(409).send({ error: 'no_organisation_selected' });
-    const role = await organisations.role(session.tenantId, session.userId);
-    if (role === undefined) return reply.code(403).send({ error: 'not_a_member' });
-    if (!can(role, permission as Permission)) return reply.code(403).send({ error: 'forbidden' });
-    request.auth = { ...request.auth, tenantId: session.tenantId, role };
+    const access = await organisations.access(session.tenantId, session.userId);
+    if (access === undefined) return reply.code(403).send({ error: 'not_a_member' });
+    // S2.1 AC 5: an organisation that requires MFA is closed to members without it.
+    if (access.requireMfa && !access.userMfaEnabled) return reply.code(403).send({ error: 'mfa_required' });
+    if (!can(access.role, permission as Permission)) return reply.code(403).send({ error: 'forbidden' });
+    request.auth = { ...request.auth, tenantId: session.tenantId, role: access.role };
   });
 }
 

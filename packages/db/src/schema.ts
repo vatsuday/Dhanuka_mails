@@ -2,7 +2,7 @@
 // `pnpm --filter @dm/db db:generate`. Row-level security, grants and triggers are not expressible
 // here, so they live in hand-written SQL migrations next to the generated ones (migrations/).
 import { sql } from 'drizzle-orm';
-import { boolean, char, check, customType, index, integer, jsonb, pgSchema, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, char, check, customType, index, integer, jsonb, pgSchema, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 export const app = pgSchema('app');
 
@@ -38,6 +38,8 @@ export const tenants = app.table(
     postalAddress: jsonb('postal_address'),
     gstin: text('gstin'),
     sesTenantName: text('ses_tenant_name'),
+    /** Owner setting (S2.1 AC 5): every member must have MFA enabled to use this organisation. */
+    requireMfa: boolean('require_mfa').notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -168,4 +170,25 @@ export const tenantSendingPolicies = app.table(
     check('tenant_sending_policies_mode_check', sql`${t.sendMode} IN (${oneOf(TENANT_SEND_MODES)})`),
     check('tenant_sending_policies_limits_check', sql`${t.dailyLimit} >= 0 AND ${t.hourlyLimit} >= 0 AND ${t.maxRatePerSec} >= 0 AND ${t.maxContacts} >= 0`),
   ],
+);
+
+/**
+ * Global. One TOTP factor per user (docs/04 §5.1). The secret is envelope-encrypted (S2.1 AC 2);
+ * recovery codes are stored as SHA-256 hashes and removed when used. `confirmed_at` is null while
+ * enrolment is pending. `last_used_step` rejects reuse of a code's time step (AC 4).
+ */
+export const mfaFactors = app.table(
+  'mfa_factors',
+  {
+    id: id(),
+    userId: uuid('user_id').notNull().unique().references(() => users.id),
+    type: text('type', { enum: ['totp'] }).notNull().default('totp'),
+    secretCiphertext: bytea('secret_ciphertext').notNull(),
+    keyId: text('key_id').notNull(),
+    recoveryCodesHashed: bytea('recovery_codes_hashed').array().notNull().default(sql`'{}'::bytea[]`),
+    lastUsedStep: bigint('last_used_step', { mode: 'number' }),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [check('mfa_factors_type_check', sql`${t.type} = 'totp'`)],
 );

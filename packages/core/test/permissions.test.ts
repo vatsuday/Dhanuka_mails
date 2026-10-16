@@ -8,6 +8,7 @@ const ROLES: Role[] = ['owner', 'admin', 'marketer', 'developer', 'viewer'];
 /** docs/02 §5 row label → the permission(s) implementing it. */
 const DOC_ROWS: Record<string, Permission[]> = {
   'Billing, delete org, transfer ownership': ['billing:manage', 'org:delete', 'org:transfer'],
+  'Organisation security (require MFA)': ['security:manage'],
   'Manage members and roles (up to own role)': ['members:manage'],
   'Sending domains': ['domains:manage'],
   'API keys and webhooks': ['developer:manage'],

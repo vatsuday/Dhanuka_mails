@@ -1,7 +1,8 @@
 // S1.8 RBAC: every route declares a permission (default deny), and every role is tested against
 // every tenant route registered so far. Also cross-tenant and membership-removal checks (docs/02 §4.3).
 import { randomUUID } from 'node:crypto';
-import { can, localBreachedList, PERMISSIONS, TEST_ARGON2, type Permission, type Role } from '@dm/core';
+import { randomBytes } from 'node:crypto';
+import { can, localBreachedList, localKek, PERMISSIONS, TEST_ARGON2, type Permission, type Role } from '@dm/core';
 import { createDatabase } from '@dm/db';
 import { buildHttpService, createLogger } from '@dm/shared';
 import type { RouteOptions } from 'fastify';
@@ -25,6 +26,7 @@ async function registeredRoutes(): Promise<RouteOptions[]> {
       registerApi(a, {
         db: createDatabase(new pg.Pool({ max: 1 })), cache, sendingMode: 'sink', mailpitUrl: 'http://127.0.0.1:1',
         mailFrom: { email: 'a@b.test', name: 'x' }, appUrl: 'http://app.test', breached: localBreachedList(), argon2: TEST_ARGON2,
+        mfaKeks: [localKek('t', randomBytes(32))],
       });
     },
   });
@@ -56,7 +58,7 @@ describe('route declarations (S1.8 AC 2)', () => {
       .map((r) => `${String(r.method)} ${r.url}`)
       .sort();
     expect(publicRoutes).toEqual([
-      'POST /auth/login', 'POST /auth/password-reset/confirm', 'POST /auth/password-reset/request',
+      'POST /auth/login', 'POST /auth/login/mfa', 'POST /auth/password-reset/confirm', 'POST /auth/password-reset/request',
       'POST /auth/resend-verification', 'POST /auth/signup', 'POST /auth/verify-email',
     ]);
   });
@@ -70,6 +72,7 @@ describe('route declarations (S1.8 AC 2)', () => {
         registerApi(a, {
           db: createDatabase(new pg.Pool({ max: 1 })), cache, sendingMode: 'sink', mailpitUrl: 'http://127.0.0.1:1',
           mailFrom: { email: 'a@b.test', name: 'x' }, appUrl: 'http://app.test', breached: localBreachedList(),
+          mfaKeks: [localKek('t', randomBytes(32))],
         });
         a.get('/oops', () => 'no permission declared');
         cache.disconnect();

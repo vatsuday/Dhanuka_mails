@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
 import { api, messageFor } from '../../lib/api';
+import { RequireMfaCard, SecurityCard } from './security';
 
 interface Me {
   user: { id: string; email: string; name: string | null; emailVerified: boolean };
@@ -11,7 +12,7 @@ interface Me {
 }
 interface Current {
   role: string;
-  organisation: { name: string; slug: string; status: string; currency: string; timezone: string; locale: string };
+  organisation: { name: string; slug: string; status: string; currency: string; timezone: string; locale: string; requireMfa: boolean };
 }
 
 export default function DashboardPage() {
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const [current, setCurrent] = useState<Current>();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [orgError, setOrgError] = useState('');
 
   const load = useCallback(async () => {
     const result = await api<Me>('/me');
@@ -28,8 +30,18 @@ export default function DashboardPage() {
       return;
     }
     setMe(result.data);
-    if (result.data.currentTenantId === null) setCurrent(undefined);
-    else setCurrent((await api<Current>('/orgs/current')).data);
+    setOrgError('');
+    if (result.data.currentTenantId === null) {
+      setCurrent(undefined);
+      return;
+    }
+    const org = await api<Current>('/orgs/current');
+    // e.g. mfa_required: the organisation requires two-step verification and this user has none yet.
+    if (org.ok) setCurrent(org.data);
+    else {
+      setCurrent(undefined);
+      setOrgError(messageFor(org.data.error));
+    }
   }, [router]);
 
   useEffect(() => {
@@ -85,6 +97,12 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {orgError !== '' && (
+        <div className="card">
+          <p className="error" role="alert">{orgError}</p>
+        </div>
+      )}
+
       {current !== undefined && (
         <div className="card">
           <h2>{current.organisation.name}</h2>
@@ -99,6 +117,10 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      {current?.role === 'owner' && <RequireMfaCard requireMfa={current.organisation.requireMfa} onChange={load} />}
+
+      <SecurityCard onChange={load} />
 
       <div className="card">
         <h2>Your organisations</h2>

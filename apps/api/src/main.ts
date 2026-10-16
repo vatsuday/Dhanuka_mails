@@ -1,5 +1,6 @@
 // Tenant-facing REST API (dashboard and public API).
-import { anyBreached, localBreachedList, pwnedPasswordsChecker } from '@dm/core';
+import { createHash } from 'node:crypto';
+import { anyBreached, localBreachedList, localKek, pwnedPasswordsChecker } from '@dm/core';
 import { createDatabase } from '@dm/db';
 import {
   connectDependencies,
@@ -34,7 +35,27 @@ const config = loadConfigOrExit({
   PASSWORD_BREACH_CHECK: z.enum(['local', 'local+hibp']).default('local'),
   /** Proxy addresses to trust for the client IP (the local Next.js rewrite runs on loopback). */
   TRUST_PROXY: z.string().default('127.0.0.1'),
+  /**
+   * Local key-encryption key for MFA secrets: 32 random bytes, base64. Development and CI only;
+   * production uses AWS KMS (S15.4) and refuses to start with a local key.
+   */
+  MFA_LOCAL_KEK: z
+    .string()
+    .refine((v) => Buffer.from(v, 'base64').length === 32, { error: 'must be 32 bytes, base64-encoded' })
+    .optional(),
+  MFA_LOCAL_KEK_ID: z.string().regex(/^[a-z0-9-]{1,40}$/).default('local-dev-1'),
 });
+
+if (config.APP_ENV === 'production' || config.APP_ENV === 'staging') {
+  // KMS-backed keys arrive with the AWS infrastructure (S2.6 / S15.4).
+  throw new Error('MFA needs a KMS key-encryption key outside development; the KMS adapter is not implemented yet');
+}
+// Without MFA_LOCAL_KEK, development and test use a fixed key derived from a public string: fine for
+// throwaway local data, and it keeps any key material out of the repository.
+const mfaKek =
+  config.MFA_LOCAL_KEK === undefined
+    ? localKek('public-dev', createHash('sha256').update('dhanuka-mails public development MFA key, not secret').digest())
+    : localKek(config.MFA_LOCAL_KEK_ID, Buffer.from(config.MFA_LOCAL_KEK, 'base64'));
 
 const logger = createLogger({ service: SERVICE, env: config.APP_ENV, level: config.LOG_LEVEL });
 const dependencies = connectDependencies(
@@ -62,6 +83,7 @@ await startHttpService({
       sandboxAllowlist: config.SANDBOX_ALLOWLIST,
       mailFrom: { email: config.SYSTEM_MAIL_FROM, name: 'Dhanuka Mails' },
       appUrl: config.APP_URL,
+      mfaKeks: [mfaKek],
       breached:
         config.PASSWORD_BREACH_CHECK === 'local+hibp' ? anyBreached(localBreachedList(), pwnedPasswordsChecker()) : localBreachedList(),
     });

@@ -8,3 +8,5 @@ export * from './identity/tokens.ts';
 export * from './mailer.ts';
 export * from './tenancy/organisations.ts';
 export * from './tenancy/permissions.ts';
+export * from './crypto/envelope.ts';
+export * from './identity/mfa.ts';

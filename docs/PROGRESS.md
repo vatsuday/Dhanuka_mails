@@ -1,16 +1,16 @@
 # Progress Checklist
 
 **Current phase:** Phase 2 — MVP build
-**Current sprint:** Sprint 1 (Identity, organisations, system email): **done 2026-10-15**; next Sprint 2
-**Current task:** **Sprint 1 complete (2026-10-15).** Sprint 0 and Sprint 1 are implemented and verified. **Sprint 2 needs PO inputs before its AWS stories:** an AWS account (staging), a domain to verify in SES, and approval of the D5 cost estimate (S2.6, S2.7). S2.1 MFA, S2.2 invitations, S2.3 API keys and S2.4 domain records can be built locally first. **Open PO actions:** the `CI OK` ruleset (B6), the S0.5 demo PR, repository visibility. CI **does not block merges** until the ruleset is applied.
-**Last updated:** 2026-10-15 (Sprint 1 complete)
+**Current sprint:** Sprint 2 (in progress; S2.1 done 2026-10-16)
+**Current task:** S2.1 MFA done; next S2.2 invitations. **Sprint 2 needs PO inputs before its AWS stories:** an AWS account (staging), a domain to verify in SES, and approval of the D5 cost estimate (S2.6, S2.7). S2.1 MFA, S2.2 invitations, S2.3 API keys and S2.4 domain records can be built locally first. **Open PO actions:** the `CI OK` ruleset (B6), the S0.5 demo PR, repository visibility. CI **does not block merges** until the ruleset is applied.
+**Last updated:** 2026-10-16 (S2.1 complete)
 
 ## Phases
 
 | Phase | Scope | Status |
 |---|---|---|
 | Phase 1 | Requirements, architecture, DB design, tech stack, backlog, ADRs, policies | ✅ **Approved 2026-10-14** (D1–D4, with safeguards) |
-| Phase 2 | MVP build, Sprints 0–9 (`05-backlog.md`) | 🟡 In progress: Sprints 0 and 1 done; Sprint 2 next |
+| Phase 2 | MVP build, Sprints 0–9 (`05-backlog.md`) | 🟡 In progress: Sprints 0 and 1 done; Sprint 2 in progress |
 | Phase 3 | Controlled beta (`live` sending after the readiness gate) | ⚪ Not started |
 | Phase 4 | Release 2: SMS, WhatsApp, automation, forms | ⚪ Not started |
 | Phase 5 | Release 3: AI features, integrations, SSO, white-label | ⚪ Not started |
@@ -24,6 +24,16 @@
 - [x] Safeguard 2 applied. Thresholds are configurable, versioned guardrails with minimum volumes, a Wilson lower-bound gate, absolute backstops, provider signals, conservative handling of insufficient data, and an immediate pause for serious incidents (`06` §3–§4, ADR-015, story S14.1).
 - [x] Consistency check: status headers updated, no stale suppression wording, sprint totals match the plan (305 pts), every MVP story has AC, ADR index complete (001–015)
 - [x] ADRs marked Accepted. ADR-013 cost option: Option B preferred (D5), subject to a verified estimate before provisioning. Spike-dependent items are flagged in the ADR index.
+
+## Sprint 2 report (in progress)
+
+| Story | Status | Evidence |
+|---|---|---|
+| **S2.1** TOTP MFA | ✅ 2026-10-16 | (1) `POST /auth/mfa/enroll` returns the otpauth URI and an SVG QR code (`uqr`); MFA stays off until `/auth/mfa/confirm` gets a valid code. (2) Secret envelope-encrypted: fresh AES-256-GCM data key per secret, wrapped by a KEK; `mfa:<userId>` bound as AAD; `key_id` stored for rotation. Locally the KEK is `MFA_LOCAL_KEK` (or a public dev key); **staging/production refuse to start until the KMS adapter exists (S2.6/S15.4)**. (3) 10 recovery codes (≈50 bits each), SHA-256 only, removed atomically when used. (4) ±1 step; the used step is recorded with a conditional UPDATE, so the same or an earlier step is rejected, even concurrently. (5) Owner-only `security:manage` → `POST /orgs/current/security`; owner must have MFA first; members without MFA get `403 mfa_required` on every tenant route. (6) Login with MFA returns a challenge (valkey-cache, 5 min, 5 attempts) instead of a session; `POST /auth/login/mfa` completes it. Audited: enabled, disabled, challenged, failed, recovery code used, requirement changed. Web: two-step login screen and a dashboard security card (QR, recovery codes, turn off, owner switch). |
+
+**S2.1 bug found and fixed:** node-pg cannot serialise an array of Buffers (`bytea[]`). The raw bytes went into the array literal, so Postgres rejected confirmation with "invalid byte sequence 0x00". The hashes now travel as hex and are decoded in SQL.
+
+**S2.1 tests:** api mfa.test.ts 10 (enrolment, encryption at rest, step reuse, ±1 window, recovery single use, challenge attempts, org requirement) + core envelope.test.ts 7. All suites: 264 passed. The web UI passes typecheck, lint and a production build; it was **not** driven in a browser this time.
 
 ## Sprint 1 report (2026-10-15)
 
@@ -39,7 +49,7 @@ PO instruction: "complete this project and provide me". Sprint 1 was built end t
 | **S1.6** Create organisation | ✅ | One `withTenant` transaction: tenant (`pending_review`, INR, Asia/Kolkata, en-IN, ap-south-1), owner membership, `tenant_sending_policies` (tier and mode `sandbox`, docs/06 §2 limits) and the `org.created` audit row. Unique slug with a random-suffix retry (other tenants' slugs are invisible under RLS). |
 | **S1.7** Membership lookup function | ✅ | `app.list_user_memberships`: SECURITY DEFINER, owned by `rls_lookup` (column-level SELECT only), `search_path` pinned, EXECUTE for `app_user` only, documented columns only, and bound to `app.user_id` (`withUser`). Tests: other users' memberships never returned, wrong or unbound user returns nothing, PUBLIC cannot execute. |
 | **S1.8** RBAC enforcement | ✅ | Permission matrix in `@dm/core` checked **against the docs/02 §5 table text**. Every route declares `config.permission`; a route without one cannot be registered. Every role is tested against every tenant route; mutation check (removing the `can()` check) is caught. Membership is re-checked on each request, so a removed member loses access immediately. |
-| **S1.9** Audit log writer | ✅ | `audit_logs` partitioned monthly (through 2027-12 plus default). `app_user`/`admin_user`: INSERT and SELECT only, so UPDATE, DELETE and TRUNCATE fail; partitions are unreachable directly. Recorded with IP and user agent: sign-up, verification, resend, login success, failure and rate-limit, logout, reset request and reset, organisation creation. MFA events arrive with S2.1. |
+| **S1.9** Audit log writer | ✅ | `audit_logs` partitioned monthly (through 2027-12 plus default). `app_user`/`admin_user`: INSERT and SELECT only, so UPDATE, DELETE and TRUNCATE fail; partitions are unreachable directly. Recorded with IP and user agent: sign-up, verification, resend, login success, failure and rate-limit, logout, reset request and reset, organisation creation. MFA events added in S2.1. |
 
 **Exit demo** ("Signup → verify (email visible in Mailpit) → create org"): ✅ `apps/web/e2e/signup-flow.spec.ts` in Chrome against the real stack (local Postgres, Valkey, Mailpit, api, built web app): sign-up form → link from Mailpit → confirmed → log in → create organisation → dashboard shows owner and "pending review" → cookie attributes checked → log out. It runs with `E2E_STACK=1`; the CI e2e job still runs only the web smoke tests (no services there yet).
 

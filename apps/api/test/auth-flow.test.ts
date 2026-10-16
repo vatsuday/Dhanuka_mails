@@ -49,7 +49,7 @@ describe('S1.1 sign-up and email verification', () => {
       role: 'owner',
       organisation: {
         id: tenantId, name: 'Asha Textiles', slug: 'asha-textiles', status: 'pending_review',
-        currency: 'INR', timezone: 'Asia/Kolkata', locale: 'en-IN', dataRegion: 'ap-south-1',
+        currency: 'INR', timezone: 'Asia/Kolkata', locale: 'en-IN', dataRegion: 'ap-south-1', requireMfa: false,
       },
     });
     const { rows } = await stack.pg.superuser.query(`select tier, send_mode from app.tenant_sending_policies where tenant_id = $1`, [tenantId]);

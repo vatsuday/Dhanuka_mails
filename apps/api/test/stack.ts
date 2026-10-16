@@ -1,5 +1,6 @@
 // Test stack: migrated Postgres, valkey-cache and Mailpit containers, and the API built in-process.
-import { localBreachedList, TEST_ARGON2 } from '@dm/core';
+import { randomBytes } from 'node:crypto';
+import { localBreachedList, localKek, TEST_ARGON2 } from '@dm/core';
 import { createDatabase } from '@dm/db';
 import { startTestDatabase, type TestDatabase } from '@dm/db/testing';
 import { buildHttpService, createLogger, type AppWithLogger } from '@dm/shared';
@@ -11,6 +12,11 @@ export const APP_URL = 'http://app.test';
 
 type Logger = ReturnType<typeof createLogger>;
 
+export interface StackOptions {
+  /** Pins the TOTP clock (Unix seconds). */
+  nowSeconds?: () => number;
+}
+
 export interface Stack {
   app: AppWithLogger<Logger>;
   pg: TestDatabase;
@@ -19,7 +25,7 @@ export interface Stack {
   stop: () => Promise<void>;
 }
 
-export async function startStack(): Promise<Stack> {
+export async function startStack(options: StackOptions = {}): Promise<Stack> {
   const [pg, valkey, mailpit] = await Promise.all([
     startTestDatabase(),
     new GenericContainer('valkey/valkey:8.1.10')
@@ -36,7 +42,7 @@ export async function startStack(): Promise<Stack> {
     env: 'test',
     host: '127.0.0.1',
     port: 0,
-    logger: createLogger({ service: 'api-test', env: 'test', level: 'silent' }),
+    logger: createLogger({ service: 'api-test', env: 'test', level: (process.env.TEST_LOG ?? 'silent') as 'silent' }),
     checks: [],
     handleSignals: false,
     register: (a) => {
@@ -50,6 +56,8 @@ export async function startStack(): Promise<Stack> {
         breached: localBreachedList(),
         argon2: TEST_ARGON2,
         sleep: () => Promise.resolve(),
+        mfaKeks: [localKek('test-1', randomBytes(32))],
+        ...(options.nowSeconds === undefined ? {} : { nowSeconds: options.nowSeconds }),
       });
     },
   });

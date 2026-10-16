@@ -18,7 +18,9 @@
     "@dm/db": "workspace:*",
     "@node-rs/argon2": "catalog:",
     "drizzle-orm": "catalog:",
-    "ioredis": "catalog:"
+    "ioredis": "catalog:",
+    "otplib": "catalog:",
+    "uqr": "catalog:"
   },
   "devDependencies": {
     "@dm/config": "workspace:*",

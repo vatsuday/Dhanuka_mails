@@ -27,6 +27,7 @@
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "eslint": "catalog:",
+    "otplib": "catalog:",
     "pg": "catalog:",
     "testcontainers": "catalog:",
     "typescript": "catalog:",

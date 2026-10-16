@@ -11,6 +11,7 @@ import { parse, requestContext } from './auth.ts';
 
 const CreateOrgBody = z.object({ name: z.string().max(200) });
 const SelectOrgBody = z.object({ tenantId: z.uuid() });
+const SecurityBody = z.object({ requireMfa: z.boolean() });
 
 export interface OrgRouteDeps {
   db: Database;
@@ -58,6 +59,14 @@ export function registerOrgRoutes<L extends FastifyBaseLogger>(app: AppWithLogge
   app.get('/orgs/current', { config: { permission: 'org:view' } }, async (request) => {
     const { tenantId, role } = tenantAuth(request);
     return { organisation: await organisations.get(tenantId), role };
+  });
+
+  app.post('/orgs/current/security', { config: { permission: 'security:manage' } }, async (request, reply) => {
+    const body = await parse(SecurityBody, request, reply);
+    if (body === undefined) return reply;
+    const { tenantId, userId } = tenantAuth(request);
+    const result = await organisations.setRequireMfa(tenantId, userId, body.requireMfa, requestContext(request));
+    return result.ok ? reply.send({ requireMfa: body.requireMfa }) : reply.code(409).send({ error: result.error });
   });
 
   // Minimal reader for the audit trail; the full viewer with filters is S2.8.
